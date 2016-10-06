@@ -3,24 +3,14 @@
 #include <stdlib.h>
 #include <GL/glut.h>
 
+#include "vector.h"
 #include "gui_element.h"
 
 struct gui_manager *gui_manager_new(void) {
   struct gui_manager *m = malloc(sizeof(*m));
   if (!m) return NULL;
 
-  m->capacity = GUI_MANAGER_INIT_CAPACITY;
-  m->n_elements = 0;
-
-  m->elements = malloc(sizeof(*m->elements) * m->capacity);
-  if (!m) {
-    gui_manager_delete(&m);
-    return NULL;
-  }
-
-  for (int i=0; i<m->capacity; ++i) {
-    m->elements[i] = NULL;
-  }
+  m->elements = vector_new(GUI_MANAGER_INIT_CAPACITY, 2);
 
   return m;
 }
@@ -29,17 +19,16 @@ struct gui_manager *gui_manager_new(void) {
 void gui_manager_delete(struct gui_manager **m) {
   if (!*m) return;
 
-  if ((*m)->elements) free((*m)->elements);
+  vector_delete(&(*m)->elements);
 
   *m = NULL;
 }
 
 
 void gui_manager_add_element(struct gui_manager *m, struct gui_element *e) {
-  if (m->n_elements >= m->capacity) return;
-
-  m->elements[m->n_elements++] = e;
+  vector_add(m->elements, e);
 }
+
 
 void gui_manager_draw(struct gui_manager *m) {
   glMatrixMode(GL_PROJECTION);
@@ -51,9 +40,9 @@ void gui_manager_draw(struct gui_manager *m) {
   glPushMatrix();
   glLoadIdentity();
 
-  for (int i=0; i<m->capacity; ++i) {
-    if (m->elements[i]) {
-      gui_element_draw(m->elements[i]);
+  for (size_t i=0; i<m->elements->size; ++i) {
+    if (m->elements->elements[i]) {
+      gui_element_draw(m->elements->elements[i]);
     }
   }
 
@@ -69,9 +58,9 @@ void gui_manager_event_click(struct gui_manager *m, int x, int y, int state) {
 
   int ry = m->w_height - y;
 
-  for (int i=0; i<GUI_MANAGER_INIT_CAPACITY; ++i) {
-    struct gui_element *e = m->elements[i];
-    if (!e) continue;
+  for (size_t i=0; i<m->elements->size; ++i) {
+    struct gui_element *e = m->elements->elements[i];
+    if (!e || e->callback == NULL) continue;
 
     if (gui_element_is_inside(e, x, ry)) {
       e->callback();

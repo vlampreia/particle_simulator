@@ -9,7 +9,7 @@
 static void _init_particle(struct emitter *e, struct particle *p);
 
 
-struct emitter *emitter_new(struct particle **particle_pool) {
+struct emitter *emitter_new(struct vector *particle_pool) {
   struct emitter *e = malloc(sizeof(*e));
   if (!e) return NULL;
 
@@ -29,6 +29,8 @@ struct emitter *emitter_new(struct particle **particle_pool) {
 
   e->particle_pool = particle_pool;
 
+  e->firing = 0;
+
   return e;
 }
 
@@ -41,10 +43,10 @@ void emitter_delete(struct emitter **e) {
 }
 
 void emitter_fire(struct emitter *e) {
-  for (int i=0; i<100; ++i) {
-    if (!e->particle_pool[i]->active) {
-      _init_particle(e, e->particle_pool[i]);
-      e->particle_pool[i]->active = 1;
+  for (size_t i=0; i<e->particle_pool->size; ++i) {
+    if (!((struct particle*) e->particle_pool->elements[i])->active) {
+      _init_particle(e, e->particle_pool->elements[i]);
+      ((struct particle*)e->particle_pool->elements[i])->active = 1;
       break;
     }
   }
@@ -55,6 +57,11 @@ void emitter_step(struct emitter *e, int t) {
     emitter_fire(e);
     e->last_fire_t = t;
   }
+}
+
+
+void emitter_set_particle_pool(struct emitter *e, struct vector *pool) {
+  e->particle_pool = pool;
 }
 
 

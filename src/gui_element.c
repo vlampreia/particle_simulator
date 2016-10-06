@@ -29,6 +29,7 @@ struct gui_element *gui_element_new(
     e->str = malloc(sizeof(str));
     strcpy(e->str, str);
   }
+
   e->callback = callback;
 
   _compile(e);
@@ -56,10 +57,14 @@ void gui_element_set_dimensions(struct gui_element *e, int width, int height) {
   _compile(e);
 }
 
-void gui_element_set_str(struct gui_element *e, const char *str) {
-  if (e->str) free(e->str);
-  e->str = malloc(sizeof(str));
+void gui_element_set_str(struct gui_element *e, const char *str, int resize) {
+  e->str = realloc(e->str, sizeof(str));
   strcpy(e->str, str);
+
+  if (resize) {
+    e->width = 10 + GUI_ELEMENT_CHAR_WIDTH * strlen(str);
+    _compile(e);
+  }
 }
 
 void gui_element_set_callback(struct gui_element *e, void(*callback)(void)) {
@@ -74,11 +79,13 @@ int gui_element_is_inside(struct gui_element *e, int x, int y) {
 }
 
 void gui_element_draw(struct gui_element *e) {
-  glColor3f(0.7f, 0.7f, 0.7f);
+  if (e->callback == NULL) glColor4f(0.7f, 0.7f, 0.7f, 0.7f);
+  else glColor4f(0.4f, 0.55f, 0.9f, 0.9f);
+
   glCallList(e->compiled_list);
 
   if (!e->str) return;
-  glColor3f(0.4f, 0.4f, 0.4f);
+  glColor3f(0.3f, 0.3f, 0.3f);
   size_t i = 0;
   int x_offset = 5;
   while(e->str[i] != '\0' && x_offset < e->width - GUI_ELEMENT_CHAR_WIDTH) {

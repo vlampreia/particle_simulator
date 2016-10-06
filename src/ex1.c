@@ -12,161 +12,42 @@
 #include "gui_manager.h"
 #include "gui_element.h"
 
+#include "particle_system.h"
+#include "camera.h"
+
 //------------------------------------------------------------------------------
 
 
-static struct gui_manager *_guiManager;
+static struct gui_manager *_guiManager = NULL;
+static struct particle_system *_pSystem = NULL;
 
-
+static struct camera _camera;
 
 static double myRandom(void)
 {
   return ((-RAND_MAX/2 + rand())/(double)RAND_MAX);
 }
 
-#define NUM_PARTICLES 100
-#define NUM_EMITTERS 1
+#define NUM_PARTICLES 300000
+#define NUM_EMITTERS 2
 static int _window_width = 800;
 static int _window_height = 600;
-static struct _text;
 
-struct particle **particle_list;
-struct emitter **emitter_list;
+static int _ctrl_mode = 0;
 
-//------------------------------------------------------------------------------
+static int _distance = 800;
+static int _mouse_x_p = 0;
+static int _mouse_y_p = 0;
+static double _yaw = 0.0f;
+static double _pitch = 0.0f;
+static int _dragging = 0;
 
-static void initialise_particle(struct particle *p) {
-  p->mass = 0.2f + myRandom();
-  p->velocity.x = 0.0f;//myRandom() * -0.8f;
-  p->velocity.y = 0.55f;
-  p->velocity.z = -0.1f;
+static char _gui_buffer[256];
 
-  p->bounce = 0.75f;
-
-  vector3f_init(&p->pos);
-  p->tod_usec = 14000;
-}
-
-//------------------------------------------------------------------------------
-
-static void initialiseParticles(size_t n) {
-  if (particle_list == NULL) {
-    particle_list = malloc(sizeof(*particle_list) * n);
-  }
-
-  for (int i=0; i<n; ++i) {
-    struct particle *p = particle_new();
-    //initialise_particle(p);
-    particle_list[i] = p;
-  }
-}
-
-//------------------------------------------------------------------------------
-
-static void update_particle(struct particle *p, long dt) {
-  if (p->tod_usec <= 0) {
-    p->active = 0;
-    return;
-  }
-  p->tod_usec -= dt;
-//  if (p->tod_usec <= global_time.tv_nsec/1000) {
-//    p->active = 0;
-//    return;
-//  }
-
-  /**
-   * Here we compute basic gravitational force using euler computations:
-   * a = F/m
-   * v = v' + a * dT
-   * p = p' + v * dT
-   *
-   * a = acceleration
-   * F = force
-   * m = mass
-   * v = velocity
-   * p = position
-   */
-//  printf(
-//    "%lu -- a%s, v%s, vp%s, p%s\n",
-//    dt,
-//    vector3f_to_str(p->acceleration),
-//    vector3f_to_str(p->velocity),
-//    vector3f_to_str(p->velocity_p),
-//    vector3f_to_str(p->pos)
-//  );
-
-  double force = -0.02f * p->mass;
-  double friction = 0.995f;
-
-  //force is static down 1 for now
-  p->acceleration.x = 0;
-  p->acceleration.y = force / p->mass;
-  p->acceleration.z = 0;
-
-  //vector3f_normalise(p->acceleration);
-  
-  p->velocity.x *= friction;
-  p->velocity.z *= friction;
-
-  p->velocity.x += p->acceleration.x;
-  p->velocity.y += p->acceleration.y;
-  p->velocity.z += p->acceleration.z;
-
-  //vector3f_normalise(p->velocity);
-
-  p->pos.x += p->velocity.x * dt;
-  p->pos.y += p->velocity.y * dt;
-  p->pos.z += p->velocity.z * dt;
-
-
-  if (p->pos.y <= 0.0f) {
-    p->pos.y = 0.0f;
-    p->velocity.y = -p->velocity.y * p->bounce;
-    p->velocity.z += 0.001 * myRandom();
-    p->velocity.x += 0.001 * myRandom();
-  }
-
-  if (p->pos.x >= 400.0f) {
-    p->pos.x = 400.0f;
-    p->velocity.x = -p->velocity.x * p->bounce;
-    p->velocity.z += 0.01 * myRandom();
-  }
-}
-
-//int pgentime = 0;
-static void update_particles(int t, int dt) {
-  for (int i=0; i<NUM_PARTICLES; ++i) {
-    update_particle(particle_list[i], dt);
-  }
-
-  //printf("%lu\n", global_time.tv_nsec/1000 - pgentime);
-  //if (global_time.tv_nsec/1000 - pgentime > 5) {
-  
-  // REPLACED BY emitter_step
-  //if (t - pgentime > 5) {
-  //  for (int i=0; i<NUM_PARTICLES; ++i) {
-  //    if (!particle_list[i]->active) {
-  //      initialise_particle(particle_list[i]);
-  //      particle_list[i]->active = 1;
-  //      break;
-  //    }
-  //  }
-  //  //pgentime = global_time.tv_nsec/1000;
-  //  pgentime = t;
-  //}
-}
-
-//------------------------------------------------------------------------------
-
-static int _auto = 0;
-
-void update_emitters(int t, int dt) {
-  if (!_auto) return;
-  for (int i=0; i<NUM_EMITTERS; ++i) {
-    emitter_step(emitter_list[i], t);
-  }
-}
-
+struct {
+  int lastRenderTime;
+  int lastRenderDuration;
+} _statistics = {0, 0};
 
 // Display list for coordinate axis 
 GLuint axisList;
@@ -179,25 +60,55 @@ int msq = 0;
 
 //------------------------------------------------------------------------------
 
-static void step_simulation(void) {
-  //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time);
-  //long dt = global_time.tv_nsec - global_time_p.tv_nsec;
-  //global_time_p = global_time;
+/* main UI */
 
+static struct gui_element *txt_ctrlMode = NULL;
+static struct gui_element *txt_fps      = NULL;
+static struct gui_element *txt_mspf     = NULL;
+static struct gui_element *txt_pcount   = NULL;
+
+static struct gui_element *btn_fire     = NULL;
+
+static struct gui_element *txt_grav     = NULL;
+static struct gui_element *btn_incG     = NULL;
+static struct gui_element *btn_decG     = NULL;
+
+//------------------------------------------------------------------------------
+
+static void _set_ctrl_mode(int mode) {
+  _ctrl_mode = mode;
+
+  char *str = malloc(11);
+  snprintf(str, 11, "Emitter: %d", _ctrl_mode);
+  gui_element_set_str(txt_ctrlMode, str, 0);
+  free(str);
+}
+
+//------------------------------------------------------------------------------
+
+static void initialise_particle(struct particle *p) {
+  p->mass = 0.2f + myRandom();
+  p->velocity.x = 0.0f;//myRandom() * -0.8f;
+  p->velocity.y = 0.55f;
+  p->velocity.z = -0.1f;
+
+  p->bounce = 0.75f;
+
+  vector3f_init(&p->pos);
+  p->tod_usec = 54000;
+}
+
+//------------------------------------------------------------------------------
+
+static void step_simulation(void) {
   int t = glutGet(GLUT_ELAPSED_TIME);
   int dt = t - ptime;
   ptime = t;
 
   msq += dt;
 
-  //if (dt > 500000) return;
-
-  // 1ns/1k = 1us
-  //update_particles(dt/1000);
   while (msq >= 10) {
-    //printf("update phys %d, %d\n", dt, msq);
-    update_emitters(t, dt);
-    update_particles(t, dt);
+    particle_system_step(_pSystem, t, dt);
     msq -= 10;
   }
 
@@ -207,23 +118,37 @@ static void step_simulation(void) {
 //------------------------------------------------------------------------------
 
 static void render_particles(void) {
+  int active = 0;
+
   glBegin(GL_POINTS);
-    for (int i=0; i<NUM_PARTICLES; ++i) {
-      if (!particle_list[i]->active) continue;
-      struct vector3f *v = &particle_list[i]->pos;
+    for (int i=0; i<_pSystem->particles->size; ++i) {
+      if (!((struct particle*)_pSystem->particles->elements[i])->active) continue;
+      struct vector3f *v = &((struct particle*)_pSystem->particles->elements[i])->pos;
       glVertex3f(v->x, v->y, v->z);
+      active++;
     }
   glEnd();
-}
 
-struct vector3f *_camera_pos;
+  snprintf(_gui_buffer, 256, "Particles: %d", active);
+  gui_element_set_str(txt_pcount, _gui_buffer, 1);
+}
 
 //------------------------------------------------------------------------------
 
 static void display(void)
 {
+  int t = glutGet(GLUT_ELAPSED_TIME);
+  _statistics.lastRenderDuration = t - _statistics.lastRenderTime;
+  _statistics.lastRenderTime = t;
+
+  snprintf(_gui_buffer, 256, "MSPF: %d", _statistics.lastRenderDuration);
+  gui_element_set_str(txt_mspf, _gui_buffer, 0);
+
+  snprintf(_gui_buffer, 256, "FPS: %d", 1000/_statistics.lastRenderDuration * 1000);
+  gui_element_set_str(txt_fps, _gui_buffer, 0);
+
   glLoadIdentity();
-  gluLookAt(_camera_pos->x, _camera_pos->y, _camera_pos->z,
+  gluLookAt(_camera.pos.x, _camera.pos.y, _camera.pos.z,
             0.0, 0.0, 0.0,
             0.0, 1.0, 0.0);
   // Clear the screen
@@ -251,47 +176,37 @@ static void keyboard(unsigned char key, int x, int y)
 {
   switch (key) {
     case 27: clean_exit(); break;
-    case 102: _auto = !_auto; break;
-    case 32: emitter_fire(emitter_list[0]); break;
+
+    case 102:
+      _pSystem->emitters[_ctrl_mode]->firing = !_pSystem->emitters[_ctrl_mode]->firing;
+      break;
+
+    case 32: emitter_fire(_pSystem->emitters[_ctrl_mode]); break;
+
+    case 97: axisEnabled = !axisEnabled; break;
+
+    case 49: _set_ctrl_mode(1); break;
+    case 50: _set_ctrl_mode(2); break;
+    case 51: _set_ctrl_mode(3); break;
+    case 52: _set_ctrl_mode(4); break;
+    case 53: _set_ctrl_mode(5); break;
+    case 54: _set_ctrl_mode(6); break;
+    case 55: _set_ctrl_mode(7); break;
+    case 56: _set_ctrl_mode(8); break;
+    case 57: _set_ctrl_mode(9); break;
+    case 48: _set_ctrl_mode(0); break;
+
     default: break;
   }
 
   glutPostRedisplay();
 }
 
-static int _ctrl_mode = 0;
-
-static int _distance = 800;
-#define DEG_TO_RAD 0.017453293
-static int _mouse_x_p = 0;
-static int _mouse_y_p = 0;
-static double _yaw = 0.0f;
-static double _pitch = 0.0f;
-static int _dragging = 0;
 
 //------------------------------------------------------------------------------
-
-static void update_cam() {
-  _camera_pos->x = _distance * -sin(_pitch*DEG_TO_RAD) * cos(_yaw*DEG_TO_RAD);
-  _camera_pos->y = _distance * -sin(_yaw*DEG_TO_RAD);
-  _camera_pos->z = -_distance * cos(_pitch*DEG_TO_RAD) * cos(_yaw*DEG_TO_RAD);
-}
-
-//------------------------------------------------------------------------------
-
-static void _zoom(int amount) {
-  _distance += amount;
-  update_cam();
-}
 
 static void myCb(void) {
-  emitter_fire(emitter_list[0]);
-}
-
-static void _ui_mouse(int x, int y) {
-  if (x > 0 && x < 10 && y > 0 && y < 10) {
-    emitter_fire(emitter_list[0]);
-  }
+  emitter_fire(_pSystem->emitters[_ctrl_mode]);
 }
 
 //------------------------------------------------------------------------------
@@ -310,24 +225,46 @@ static void mouse(int button, int state, int x, int y) {
       }
       break;
 
-    case 3: _zoom(-10); break;
-    case 4: _zoom(10); break;
-
-    case 97: axisEnabled = !axisEnabled; break;
-
-    case 96: _ctrl_mode = 0; break;
-    case 49: _ctrl_mode = 1; break;
-    case 50: _ctrl_mode = 2; break;
-    case 51: _ctrl_mode = 3; break;
-    case 52: _ctrl_mode = 4; break;
-    case 53: _ctrl_mode = 5; break;
-    case 54: _ctrl_mode = 6; break;
-    case 55: _ctrl_mode = 7; break;
-    case 56: _ctrl_mode = 8; break;
-    case 57: _ctrl_mode = 9; break;
+    case 3: camera_inc_distance(&_camera, -10); break;
+    case 4: camera_inc_distance(&_camera,  10); break;
 
     default: break;
   }
+}
+
+//------------------------------------------------------------------------------
+
+static void init_psys(void) {
+  _pSystem = particle_system_new(NUM_PARTICLES);
+
+  struct emitter *e1 = emitter_new(NULL);
+  e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
+  vector3f_normalise(&e1->orientation);
+  e1->force = 0.8f;
+  e1->base_particle = particle_new();
+  initialise_particle(e1->base_particle);
+  e1->frequency = 1;
+  particle_system_add_emitter(_pSystem, e1);
+
+  for (int i=0; i<6; ++i) {
+    struct emitter *e = emitter_new(NULL);
+    e->orientation = (struct vector3f) {0.2f+i, 0.8f, -0.1f + i};
+    vector3f_normalise(&e->orientation);
+    e->force = 0.8f;
+    e->base_particle = particle_new();
+    initialise_particle(e->base_particle);
+    e->frequency = 1;
+    particle_system_add_emitter(_pSystem, e);
+  }
+
+  struct emitter *e2 = emitter_new(NULL);
+  e2->orientation = (struct vector3f) {1.0f, 0.5f, 0.0f};
+  vector3f_normalise(&e2->orientation);
+  e2->force = 0.5f;
+  e2->base_particle = particle_new();
+  initialise_particle(e2->base_particle);
+  e2->frequency = 1;
+  particle_system_add_emitter(_pSystem, e2);
 }
 
 //------------------------------------------------------------------------------
@@ -336,8 +273,24 @@ static void init_gui(void) {
   _guiManager = gui_manager_new();
   gui_manager_set_dimensions(_guiManager, _window_width, _window_height);
 
-  struct gui_element *e1 = gui_element_new(50, 50, 0, 0, "Fire", myCb);
-  gui_manager_add_element(_guiManager, e1);
+  txt_fps      = gui_element_new(10, 200, 95, 0, "FPS: 1000", NULL);
+  txt_mspf     = gui_element_new(110, 200, 100, 0, "MSPF: 1000", NULL);
+  txt_pcount   = gui_element_new(215, 200, 0, 0, "Particles: 0", NULL);
+  gui_manager_add_element(_guiManager, txt_fps);
+  gui_manager_add_element(_guiManager, txt_mspf);
+  gui_manager_add_element(_guiManager, txt_pcount);
+
+  txt_ctrlMode = gui_element_new(10, 170, 200, 0, "Emitter: 0", NULL);
+  btn_fire = gui_element_new(10, 145, 0, 0, "Fire", myCb);
+  gui_manager_add_element(_guiManager, txt_ctrlMode);
+  gui_manager_add_element(_guiManager, btn_fire);
+
+  txt_grav = gui_element_new(10, 115, 75, 0, "Gravity", NULL);
+  btn_decG = gui_element_new(90, 115, 20, 0, "-", NULL);
+  btn_incG = gui_element_new(115, 115, 20, 0, "+", NULL);
+  gui_manager_add_element(_guiManager, txt_grav);
+  gui_manager_add_element(_guiManager, btn_decG);
+  gui_manager_add_element(_guiManager, btn_incG);
 }
 
 //------------------------------------------------------------------------------
@@ -348,13 +301,8 @@ static void mouse_move(int x, int y) {
   int dx = (x - _mouse_x_p) * 0.5f;
   int dy = (y - _mouse_y_p) * 0.5f;
 
-  _yaw += dy;
-  _pitch += dx;
-
-  if (_yaw >= 89.0f) _yaw = 89.0f;
-  if (_yaw <= -89.0f) _yaw = -89.0f;
-
-  update_cam();
+  camera_inc_yaw(&_camera, -dy);
+  camera_inc_pitch(&_camera, -dx);
 
   _mouse_x_p = x;
   _mouse_y_p = y;
@@ -428,29 +376,21 @@ void init_glut(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-  _camera_pos = vector3f_new(700.0f, 400.0f, 800.0f);
-  particle_list = NULL;
-  initialiseParticles(NUM_PARTICLES);
-
-
-  emitter_list = malloc(sizeof(*emitter_list));
-  emitter_list[0] = emitter_new(particle_list);
-  emitter_list[0]->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
-  vector3f_normalise(&emitter_list[0]->orientation);
-  emitter_list[0]->force = 0.8f;
-  emitter_list[0]->base_particle = particle_new();
-  initialise_particle(emitter_list[0]->base_particle);
-
-  emitter_list[0]->frequency = 100;
-
   srand(time(NULL));
   init_glut(argc, argv);
 
   init_gui();
-
   makeAxes();
 
+  init_psys();
+
+  camera_set_distance(&_camera, 800);
+  camera_set_pitch(&_camera, 0.0f);
+  camera_set_yaw(&_camera, 0.0f);
+
   glEnable(GL_POINT_SMOOTH);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_BLEND);
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);
   glutMainLoop();
 
