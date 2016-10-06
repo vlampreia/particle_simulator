@@ -9,54 +9,17 @@
 #include "emitter.h"
 #include "particle.h"
 
+#include "gui_manager.h"
+#include "gui_element.h"
+
 //------------------------------------------------------------------------------
 
-struct rectangle {
-  int x, y;
-  int width, height;
-  GLuint list;
-};
+
+static struct gui_manager *_guiManager;
 
 
-static void draw_text(const char *str, int x, int y) {
-  size_t i = 0;
-  while(str[i] != '\0') {
-    glRasterPos2i(x, y);
-    glutBitmapCharacter(GLUT_BITMAP_9_BY_15, str[i]);
-    i++;
-    x += 9;
-  }
-}
 
-static void rectangle_compile(struct rectangle *r) {
-  r->list = glGenLists(1);
-  glNewList(r->list, GL_COMPILE);
-    glBegin(GL_QUADS);
-      glVertex2f(r->x, r->y);
-      glVertex2f(r->x + r->width, r->y);
-      glVertex2f(r->x + r->width, r->y+r->height);
-      glVertex2f(r->x, r->y+r->height);
-    glEnd();
-  glEndList();
-}
-
-struct text {
-  int x, y;
-  int width, height;
-  int background;
-  struct rectangle bg_rect;
-}
-
-static text_draw(struct text *t) {
-  glColor3f(0.7f, 0.7f, 0.7f);
-  glCallList(t->bg_rect.list);
-
-  glColor3f(0.1f, 0.1f, 0.1f);
-  draw_text(t->str, t->x, t->y);
-}
-
-
-double myRandom()
+static double myRandom(void)
 {
   return ((-RAND_MAX/2 + rand())/(double)RAND_MAX);
 }
@@ -65,14 +28,14 @@ double myRandom()
 #define NUM_EMITTERS 1
 static int _window_width = 800;
 static int _window_height = 600;
-static struct rectangle _r;
+static struct _text;
 
 struct particle **particle_list;
 struct emitter **emitter_list;
 
 //------------------------------------------------------------------------------
 
-void initialise_particle(struct particle *p) {
+static void initialise_particle(struct particle *p) {
   p->mass = 0.2f + myRandom();
   p->velocity.x = 0.0f;//myRandom() * -0.8f;
   p->velocity.y = 0.55f;
@@ -86,7 +49,7 @@ void initialise_particle(struct particle *p) {
 
 //------------------------------------------------------------------------------
 
-void initialiseParticles(size_t n) {
+static void initialiseParticles(size_t n) {
   if (particle_list == NULL) {
     particle_list = malloc(sizeof(*particle_list) * n);
   }
@@ -100,7 +63,7 @@ void initialiseParticles(size_t n) {
 
 //------------------------------------------------------------------------------
 
-void update_particle(struct particle *p, long dt) {
+static void update_particle(struct particle *p, long dt) {
   if (p->tod_usec <= 0) {
     p->active = 0;
     return;
@@ -171,7 +134,7 @@ void update_particle(struct particle *p, long dt) {
 }
 
 //int pgentime = 0;
-void update_particles(int t, int dt) {
+static void update_particles(int t, int dt) {
   for (int i=0; i<NUM_PARTICLES; ++i) {
     update_particle(particle_list[i], dt);
   }
@@ -216,7 +179,7 @@ int msq = 0;
 
 //------------------------------------------------------------------------------
 
-void step_simulation() {
+static void step_simulation(void) {
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time);
   //long dt = global_time.tv_nsec - global_time_p.tv_nsec;
   //global_time_p = global_time;
@@ -243,7 +206,7 @@ void step_simulation() {
 
 //------------------------------------------------------------------------------
 
-void render_particles() {
+static void render_particles(void) {
   glBegin(GL_POINTS);
     for (int i=0; i<NUM_PARTICLES; ++i) {
       if (!particle_list[i]->active) continue;
@@ -257,7 +220,7 @@ struct vector3f *_camera_pos;
 
 //------------------------------------------------------------------------------
 
-void display()
+static void display(void)
 {
   glLoadIdentity();
   gluLookAt(_camera_pos->x, _camera_pos->y, _camera_pos->z,
@@ -271,43 +234,20 @@ void display()
   glPointSize(4.0f);
   render_particles();
 
-  //gui
-  glMatrixMode(GL_PROJECTION);
-  glPushMatrix();
-  glLoadIdentity();
-  gluOrtho2D(0.0f, _window_width, 0.0f, _window_height);
+  gui_manager_draw(_guiManager);
 
-  glMatrixMode(GL_MODELVIEW);
-  glPushMatrix();
-  glLoadIdentity();
-
-  glColor3f(0.1f, 0.1f, 0.1f);
-  glRasterPos2i(10, _window_height - 20);
-  glutBitmapCharacter(GLUT_BITMAP_9_BY_15, 'c');
-
-  draw_text("asdf", 50, 50);
-
-  glColor3f(0.7f, 0.7f, 0.7f);
-  glCallList(_r.list);
-
-  glMatrixMode(GL_PROJECTION);
-  glPopMatrix();
-
-  glMatrixMode(GL_MODELVIEW);
-  glPopMatrix();
-  
   glutSwapBuffers();
 }
 
 //------------------------------------------------------------------------------
 
-void clean_exit() {
+static void clean_exit(void) {
   exit(0);
 }
 
 //------------------------------------------------------------------------------
 
-void keyboard(unsigned char key, int x, int y)
+static void keyboard(unsigned char key, int x, int y)
 {
   switch (key) {
     case 27: clean_exit(); break;
@@ -344,6 +284,10 @@ static void _zoom(int amount) {
   update_cam();
 }
 
+static void myCb(void) {
+  emitter_fire(emitter_list[0]);
+}
+
 static void _ui_mouse(int x, int y) {
   if (x > 0 && x < 10 && y > 0 && y < 10) {
     emitter_fire(emitter_list[0]);
@@ -352,10 +296,11 @@ static void _ui_mouse(int x, int y) {
 
 //------------------------------------------------------------------------------
 
-void mouse(int button, int state, int x, int y) {
+static void mouse(int button, int state, int x, int y) {
   switch (button) {
     case 0:
-      _ui_mouse(x, y);
+      gui_manager_event_click(_guiManager, x, y, state);
+      //_ui_mouse(x, y);
       break;
     case 2:
       _dragging = (state == GLUT_DOWN);
@@ -387,7 +332,17 @@ void mouse(int button, int state, int x, int y) {
 
 //------------------------------------------------------------------------------
 
-void mouse_move(int x, int y) {
+static void init_gui(void) {
+  _guiManager = gui_manager_new();
+  gui_manager_set_dimensions(_guiManager, _window_width, _window_height);
+
+  struct gui_element *e1 = gui_element_new(50, 50, 0, 0, "Fire", myCb);
+  gui_manager_add_element(_guiManager, e1);
+}
+
+//------------------------------------------------------------------------------
+
+static void mouse_move(int x, int y) {
   if (!_dragging) return;
 
   int dx = (x - _mouse_x_p) * 0.5f;
@@ -407,17 +362,18 @@ void mouse_move(int x, int y) {
 
 //------------------------------------------------------------------------------
 
-void mouse_wheel(int wheel, int direction, int x, int y) {
+static void mouse_wheel(int wheel, int direction, int x, int y) {
   if (direction > 0) _distance += 10;
   else _distance -= 10;
 }
 
 //------------------------------------------------------------------------------
 
-void reshape(int width, int height)
+static void reshape(int width, int height)
 {
   _window_width = width;
   _window_height = height;
+  gui_manager_set_dimensions(_guiManager, width, height);
   glClearColor(0.9, 0.9, 0.9, 1.0);
   glViewport(0, 0, (GLsizei)width, (GLsizei)height);
   glMatrixMode(GL_PROJECTION);
@@ -428,7 +384,7 @@ void reshape(int width, int height)
 
 //------------------------------------------------------------------------------
 
-void makeAxes() {
+static void makeAxes(void) {
 // Create a display list for drawing coord axis
   axisList = glGenLists(1);
   glNewList(axisList, GL_COMPILE);
@@ -476,6 +432,7 @@ int main(int argc, char *argv[])
   particle_list = NULL;
   initialiseParticles(NUM_PARTICLES);
 
+
   emitter_list = malloc(sizeof(*emitter_list));
   emitter_list[0] = emitter_new(particle_list);
   emitter_list[0]->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
@@ -488,10 +445,14 @@ int main(int argc, char *argv[])
 
   srand(time(NULL));
   init_glut(argc, argv);
+
+  init_gui();
+
   makeAxes();
-  _r = (struct rectangle) {10, 10, 40, 20};
-  rectangle_compile(&_r);
+
   glEnable(GL_POINT_SMOOTH);
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);
   glutMainLoop();
+
+  return 0;
 }
