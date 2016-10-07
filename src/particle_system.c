@@ -123,8 +123,8 @@ static void _update_particle(struct particle *p, int t, int dt) {
     p->pos.y = 0.0f;
     p->velocity.y = -p->velocity.y * p->bounce;
     //TODO: this is not real physics, makes surfaces look bumpy though
-    p->velocity.z += 0.001 * myRandom();
-    p->velocity.x += 0.001 * myRandom();
+    p->velocity.z += 0.0001 * myRandom();
+    p->velocity.x += 0.0001 * myRandom();
   }
 
   if (p->pos.x >= 400.0f) {
@@ -133,5 +133,23 @@ static void _update_particle(struct particle *p, int t, int dt) {
 
     //probably not real physics but looks good
     p->velocity.z += 0.01 * myRandom();
+  }
+
+  if (p->pos.x <= -400.0f) {
+    p->pos.x = -400.0f;
+    p->velocity.x = -p->velocity.x * p->bounce;
+    p->velocity.z += 0.01 * myRandom();
+  }
+
+  if (p->pos.z >= 400.0f) {
+    p->pos.z = 400.0f;
+    p->velocity.z = -p->velocity.z * p->bounce;
+    p->velocity.x += 0.01 * myRandom();
+  }
+
+  if (p->pos.z <= -400.0f) {
+    p->pos.z = -400.0f;
+    p->velocity.z = -p->velocity.z * p->bounce;
+    p->velocity.x += 0.01 * myRandom();
   }
 }

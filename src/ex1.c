@@ -152,9 +152,56 @@ static void display(void)
             0.0, 0.0, 0.0,
             0.0, 1.0, 0.0);
   // Clear the screen
-  glClear(GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   // If enabled, draw coordinate axis
+
+  int height = 400;
+  int width = 400;
+  int depth = 400;
+  glBegin(GL_TRIANGLES);
+  glColor3f(1.0f, 1.0f, 1.0f);
+    glVertex3f(width, 0.0f,    depth);
+    glVertex3f(width, height,  depth);
+    glVertex3f(width, height, -depth);
+    glVertex3f(width, height, -depth);
+    glVertex3f(width, 0.0f,   -depth);
+    glVertex3f(width, 0.0f,    depth);
+
+    glVertex3f(-width, 0.0f,    depth);
+    glVertex3f(-width, height,  depth);
+    glVertex3f(-width, height, -depth);
+    glVertex3f(-width, height, -depth);
+    glVertex3f(-width, 0.0f,   -depth);
+    glVertex3f(-width, 0.0f,    depth);
+
+  glColor3f(0.98f, 0.98f, 0.98f);
+    glVertex3f(-width, 0.0f,   depth);
+    glVertex3f( width, 0.0f,   depth);
+    glVertex3f( width, height, depth);
+    glVertex3f( width, height, depth);
+    glVertex3f(-width, height, depth);
+    glVertex3f(-width, 0.0f,   depth);
+
+    glVertex3f(-width, 0.0f,   -depth);
+    glVertex3f( width, 0.0f,   -depth);
+    glVertex3f( width, height, -depth);
+    glVertex3f( width, height, -depth);
+    glVertex3f(-width, height, -depth);
+    glVertex3f(-width, 0.0f,   -depth);
+
+
+  glColor3f(0.95f, 0.95f, 0.95f);
+    glVertex3f( width, 0.0f,  depth);
+    glVertex3f(-width, 0.0f,  depth);
+    glVertex3f(-width, 0.0f, -depth);
+    glVertex3f(-width, 0.0f, -depth);
+    glVertex3f( width, 0.0f,  depth);
+    glVertex3f( width, 0.0f, -depth);
+  glEnd();
+
   if(axisEnabled) glCallList(axisList);
+
+  glColor3f(0.2f, 0.2f, 0.2f);
 
   glPointSize(4.0f);
   render_particles();
@@ -246,11 +293,11 @@ static void init_psys(void) {
   e1->frequency = 1;
   particle_system_add_emitter(_pSystem, e1);
 
-  for (int i=0; i<6; ++i) {
+  for (int i=0; i<8; ++i) {
     struct emitter *e = emitter_new(NULL);
-    e->orientation = (struct vector3f) {0.2f+i, 0.8f, -0.1f + i};
+    e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     vector3f_normalise(&e->orientation);
-    e->force = 0.8f;
+    e->force = 0.8f  - 0.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
     e->frequency = 1;
@@ -368,8 +415,8 @@ void init_glut(int argc, char *argv[])
   glutReshapeFunc(reshape);
 
   //glEnable(GL_LIGHTING);
-  //glEnable(GL_LIGHT0);
-  //glEnable(GL_COLOR_MATERIAL);
+//  glEnable(GL_LIGHT0);
+//  glEnable(GL_COLOR_MATERIAL);
 }
 
 //------------------------------------------------------------------------------
@@ -391,6 +438,10 @@ int main(int argc, char *argv[])
   glEnable(GL_POINT_SMOOTH);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
+  //
+  //glEnable(GL_DEPTH_TEST);
+  //glDepthFunc(GL_LESS);
+  //glEnable(GL_CULL_FACE);
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);
   glutMainLoop();
 
