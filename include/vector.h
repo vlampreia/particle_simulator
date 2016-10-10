@@ -14,7 +14,7 @@ struct vector {
 struct vector *vector_new     (size_t size, size_t growth);
 void           vector_delete  (struct vector **v);
 
-size_t  vector_add    (struct vector *v, void *e);
-void    vector_remove (struct vector *v, size_t i);
+int  vector_add    (struct vector *v, void *e);
+void vector_remove (struct vector *v, size_t i);
 
 #endif

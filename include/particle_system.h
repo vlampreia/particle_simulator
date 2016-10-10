@@ -8,12 +8,9 @@ struct emitter;
 
 struct particle_system {
   struct vector *particles;
-  size_t particles_cap;
-  size_t particles_count;
+  struct vector *emitters;
 
-  struct emitter  **emitters;
-  size_t emitters_cap;
-  size_t emitters_count;
+  double gravity;
 };
 
 

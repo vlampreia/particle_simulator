@@ -26,7 +26,7 @@ void vector_delete(struct vector **v) {
   *v = NULL;
 }
 
-size_t vector_add(struct vector *v, void *e) {
+int vector_add(struct vector *v, void *e) {
   if (v->size >= v->capacity) {
     if (v->growth <= 1) return -1;
 

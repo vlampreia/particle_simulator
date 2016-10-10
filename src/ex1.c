@@ -28,7 +28,8 @@ static double myRandom(void)
   return ((-RAND_MAX/2 + rand())/(double)RAND_MAX);
 }
 
-#define NUM_PARTICLES 300000
+//#define NUM_PARTICLES 300000
+#define NUM_PARTICLES 10000
 #define NUM_EMITTERS 2
 static int _window_width = 800;
 static int _window_height = 600;
@@ -74,6 +75,20 @@ static struct gui_element *btn_incG     = NULL;
 static struct gui_element *btn_decG     = NULL;
 
 //------------------------------------------------------------------------------
+static void _gui_update_gravtext() {
+  snprintf(_gui_buffer, 256, "Gravity %f", _pSystem->gravity);
+  gui_element_set_str(txt_grav, _gui_buffer, 0);
+}
+
+static void _cb_decGrav() {
+  _pSystem->gravity -= 0.001f;
+  _gui_update_gravtext();
+}
+
+static void _cb_incGrav() {
+  _pSystem->gravity += 0.001f;
+  _gui_update_gravtext();
+}
 
 static void _set_ctrl_mode(int mode) {
   _ctrl_mode = mode;
@@ -95,7 +110,7 @@ static void initialise_particle(struct particle *p) {
   p->bounce = 0.75f;
 
   vector3f_init(&p->pos);
-  p->tod_usec = 54000;
+  p->tod_usec = 24000;
 }
 
 //------------------------------------------------------------------------------
@@ -121,7 +136,7 @@ static void render_particles(void) {
   int active = 0;
 
   glBegin(GL_POINTS);
-    for (int i=0; i<_pSystem->particles->size; ++i) {
+    for (size_t i=0; i<_pSystem->particles->size; ++i) {
       if (!((struct particle*)_pSystem->particles->elements[i])->active) continue;
       struct vector3f *v = &((struct particle*)_pSystem->particles->elements[i])->pos;
       glVertex3f(v->x, v->y, v->z);
@@ -225,10 +240,10 @@ static void keyboard(unsigned char key, int x, int y)
     case 27: clean_exit(); break;
 
     case 102:
-      _pSystem->emitters[_ctrl_mode]->firing = !_pSystem->emitters[_ctrl_mode]->firing;
+      ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing = !((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing;
       break;
 
-    case 32: emitter_fire(_pSystem->emitters[_ctrl_mode]); break;
+    case 32: emitter_fire(_pSystem->emitters->elements[_ctrl_mode]); break;
 
     case 97: axisEnabled = !axisEnabled; break;
 
@@ -253,7 +268,7 @@ static void keyboard(unsigned char key, int x, int y)
 //------------------------------------------------------------------------------
 
 static void myCb(void) {
-  emitter_fire(_pSystem->emitters[_ctrl_mode]);
+  emitter_fire(_pSystem->emitters->elements[_ctrl_mode]);
 }
 
 //------------------------------------------------------------------------------
@@ -290,24 +305,35 @@ static void init_psys(void) {
   e1->force = 0.8f;
   e1->base_particle = particle_new();
   initialise_particle(e1->base_particle);
-  e1->frequency = 1;
+  e1->frequency = 100;
   particle_system_add_emitter(_pSystem, e1);
 
-  for (int i=0; i<8; ++i) {
+  for (int i=0; i<7; ++i) {
     struct emitter *e = emitter_new(NULL);
     e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     vector3f_normalise(&e->orientation);
     e->force = 0.8f  - 0.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
-    e->frequency = 1;
+    e->frequency = 100;
     particle_system_add_emitter(_pSystem, e);
   }
 
   struct emitter *e2 = emitter_new(NULL);
+  e2->position = (struct vector3f) {50.0f, 0.0f, 50.0f};
   e2->orientation = (struct vector3f) {1.0f, 0.5f, 0.0f};
   vector3f_normalise(&e2->orientation);
-  e2->force = 0.5f;
+  e2->force = 0.9f;
+  e2->base_particle = particle_new();
+  initialise_particle(e2->base_particle);
+  e2->frequency = 1;
+  particle_system_add_emitter(_pSystem, e2);
+
+  e2 = emitter_new(NULL);
+  e2->position = (struct vector3f) {-50.0f, 0.0f, 50.0f};
+  e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
+  vector3f_normalise(&e2->orientation);
+  e2->force = 0.9f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
   e2->frequency = 1;
@@ -332,9 +358,9 @@ static void init_gui(void) {
   gui_manager_add_element(_guiManager, txt_ctrlMode);
   gui_manager_add_element(_guiManager, btn_fire);
 
-  txt_grav = gui_element_new(10, 115, 75, 0, "Gravity", NULL);
-  btn_decG = gui_element_new(90, 115, 20, 0, "-", NULL);
-  btn_incG = gui_element_new(115, 115, 20, 0, "+", NULL);
+  txt_grav = gui_element_new(10, 115, 135, 0, "Gravity 0.0000", NULL);
+  btn_decG = gui_element_new(150, 115, 20, 0, "-", _cb_decGrav);
+  btn_incG = gui_element_new(175, 115, 20, 0, "+", _cb_incGrav);
   gui_manager_add_element(_guiManager, txt_grav);
   gui_manager_add_element(_guiManager, btn_decG);
   gui_manager_add_element(_guiManager, btn_incG);
@@ -353,13 +379,6 @@ static void mouse_move(int x, int y) {
 
   _mouse_x_p = x;
   _mouse_y_p = y;
-}
-
-//------------------------------------------------------------------------------
-
-static void mouse_wheel(int wheel, int direction, int x, int y) {
-  if (direction > 0) _distance += 10;
-  else _distance -= 10;
 }
 
 //------------------------------------------------------------------------------
@@ -400,7 +419,7 @@ static void makeAxes(void) {
 
 //------------------------------------------------------------------------------
 
-void init_glut(int argc, char *argv[])
+static void init_glut(int argc, char *argv[])
 {
   glutInit(&argc, argv);
   glutInitWindowSize(_window_width, _window_height);
@@ -430,6 +449,7 @@ int main(int argc, char *argv[])
   makeAxes();
 
   init_psys();
+  _gui_update_gravtext();
 
   camera_set_distance(&_camera, 800);
   camera_set_pitch(&_camera, 0.0f);
@@ -438,7 +458,7 @@ int main(int argc, char *argv[])
   glEnable(GL_POINT_SMOOTH);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
-  //
+
   //glEnable(GL_DEPTH_TEST);
   //glDepthFunc(GL_LESS);
   //glEnable(GL_CULL_FACE);

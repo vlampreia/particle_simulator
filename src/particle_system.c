@@ -9,9 +9,9 @@
 #include "emitter.h"
 
 
-static void _update_emitters(struct emitter **elist, size_t n, int t, int dt);
-static void _update_particles(struct vector *plist, int t, int dt);
-static void _update_particle(struct particle *p, int t, int dt);
+static void _update_emitters(struct vector *elist, int t, int dt);
+static void _update_particles(struct particle_system *s, struct vector *plist, int t, int dt);
+static void _update_particle(struct particle_system *s, struct particle *p, int t, int dt);
 static double myRandom(void)
 {
   return ((-RAND_MAX/2 + rand())/(double)RAND_MAX);
@@ -23,19 +23,13 @@ struct particle_system *particle_system_new(size_t numParticles) {
   if (!s) return NULL;
 
   s->particles = vector_new(numParticles, 0);
-
-  s->emitters_cap = 10;
-  s->emitters_count = 0;
-
-  s->emitters = malloc(sizeof(*s->emitters) * s->emitters_cap);
-  if (!s->emitters) {
-    particle_system_destroy(&s);
-    return NULL;
-  }
+  s->emitters = vector_new(10, 0);
 
   for (size_t i=0; i<numParticles; ++i) {
     vector_add(s->particles, particle_new());
   }
+
+  s->gravity = 0.02f;
 
   return s;
 }
@@ -44,41 +38,39 @@ void particle_system_destroy(struct particle_system **s) {
   if (!*s) return;
 
   vector_delete(&(*s)->particles);
-  if ((*s)->emitters) free((*s)->emitters);
+  vector_delete(&(*s)->emitters);
 
   *s = NULL;
 }
 
 
 void particle_system_add_emitter(struct particle_system *s, struct emitter *e) {
-  if (s->emitters_count >= s->emitters_cap) return;
-
-  s->emitters[s->emitters_count++] = e;
+  if (vector_add(s->emitters, e) == -1) return;
   emitter_set_particle_pool(e, s->particles);
 }
 
 
 void particle_system_step(struct particle_system *s, int t, int dt) {
-  _update_emitters(s->emitters, s->emitters_count, t, dt);
-  _update_particles(s->particles, t, dt);
+  _update_emitters(s->emitters, t, dt);
+  _update_particles(s, s->particles, t, dt);
 }
 
 
-static void _update_emitters(struct emitter **elist, size_t n, int t, int dt) {
-  for (size_t i=0; i<n; ++i) {
-    if (!elist[i]) continue;
-    if (!elist[i]->firing) continue;
-    emitter_step(elist[i], t);
+static void _update_emitters(struct vector *elist, int t, int dt) {
+  for (size_t i=0; i<elist->size; ++i) {
+    if (!elist->elements[i]) continue;
+    if (!((struct emitter*)elist->elements[i])->firing) continue;
+    emitter_step(elist->elements[i], t);
   }
 }
 
-static void _update_particles(struct vector *plist, int t, int dt) {
+static void _update_particles(struct particle_system *s, struct vector *plist, int t, int dt) {
   for (size_t i=0; i<plist->size; ++i) {
-    _update_particle(plist->elements[i], t, dt);
+    _update_particle(s, plist->elements[i], t, dt);
   }
 }
 
-static void _update_particle(struct particle *p, int t, int dt) {
+static void _update_particle(struct particle_system *s, struct particle *p, int t, int dt) {
   if (p->tod_usec <= 0) {
     p->active = 0;
     return;
@@ -94,8 +86,7 @@ static void _update_particle(struct particle *p, int t, int dt) {
    * a = acceleration   F = force   m = mass  v = velocity  p = position
    */
 
-  double gravity = -0.02f;
-  double force = gravity * p->mass;
+  double force = -s->gravity * p->mass;
   double friction = 0.995f;
 
   //force is static down 1 for now
@@ -118,6 +109,28 @@ static void _update_particle(struct particle *p, int t, int dt) {
   p->pos.y += p->velocity.y * dt;
   p->pos.z += p->velocity.z * dt;
 
+  for (size_t i=0; i<s->particles->size; ++i) {
+    struct particle *_p = s->particles->elements[i];
+    if (_p == p || !_p->active) continue;
+    if (
+      (int)p->pos.x >= (int)_p->pos.x -5 && (int)p->pos.x <= (int)_p->pos.x + 5 &&
+      (int)p->pos.y >= (int)_p->pos.y -5 && (int)p->pos.y <= (int)_p->pos.y + 5 &&
+      (int)p->pos.z >= (int)_p->pos.z -5 && (int)p->pos.z <= (int)_p->pos.z + 5
+    ) {
+      double vx = p->velocity.x;
+      double vy = p->velocity.y;
+      double vz = p->velocity.z;
+
+      p->velocity.x = _p->velocity.x;
+      p->velocity.y = _p->velocity.y;
+      p->velocity.z = _p->velocity.z;
+
+      _p->velocity.x = vx;
+      _p->velocity.y = vy;
+      _p->velocity.z = vz;
+      break;
+    }
+  }
 
   if (p->pos.y <= 0.0f) {
     p->pos.y = 0.0f;
