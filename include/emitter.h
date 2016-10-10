@@ -10,8 +10,9 @@ struct emitter {
   struct particle *base_particle;
 
   struct vector3f position;
-  struct vector3f orientation;
   
+  double pitch, yaw;
+
   double horiz_angle;
   double vert_angle;
 

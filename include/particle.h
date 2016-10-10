@@ -17,6 +17,8 @@ struct particle {
   double bounce;
 
   int active;
+
+  struct vector3f color;
 };
 
 

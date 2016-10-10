@@ -111,6 +111,8 @@ static void initialise_particle(struct particle *p) {
 
   vector3f_init(&p->pos);
   p->tod_usec = 24000;
+
+  p->color = (struct vector3f) {0.2f, 0.2f, 0.2};
 }
 
 //------------------------------------------------------------------------------
@@ -137,9 +139,11 @@ static void render_particles(void) {
 
   glBegin(GL_POINTS);
     for (size_t i=0; i<_pSystem->particles->size; ++i) {
-      if (!((struct particle*)_pSystem->particles->elements[i])->active) continue;
-      struct vector3f *v = &((struct particle*)_pSystem->particles->elements[i])->pos;
-      glVertex3f(v->x, v->y, v->z);
+      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
+      if (!p->active) continue;
+
+      glColor3f(p->color.x, p->color.y, p->color.z);
+      glVertex3f(p->pos.x, p->pos.y, p->pos.x);
       active++;
     }
   glEnd();
@@ -215,8 +219,6 @@ static void display(void)
   glEnd();
 
   if(axisEnabled) glCallList(axisList);
-
-  glColor3f(0.2f, 0.2f, 0.2f);
 
   glPointSize(4.0f);
   render_particles();
@@ -300,8 +302,8 @@ static void init_psys(void) {
   _pSystem = particle_system_new(NUM_PARTICLES);
 
   struct emitter *e1 = emitter_new(NULL);
-  e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
-  vector3f_normalise(&e1->orientation);
+  //e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
+  //vector3f_normalise(&e1->orientation);
   e1->force = 0.8f;
   e1->base_particle = particle_new();
   initialise_particle(e1->base_particle);
@@ -310,8 +312,8 @@ static void init_psys(void) {
 
   for (int i=0; i<7; ++i) {
     struct emitter *e = emitter_new(NULL);
-    e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
-    vector3f_normalise(&e->orientation);
+    //e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
+    //vector3f_normalise(&e->orientation);
     e->force = 0.8f  - 0.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
@@ -321,8 +323,10 @@ static void init_psys(void) {
 
   struct emitter *e2 = emitter_new(NULL);
   e2->position = (struct vector3f) {50.0f, 0.0f, 50.0f};
-  e2->orientation = (struct vector3f) {1.0f, 0.5f, 0.0f};
-  vector3f_normalise(&e2->orientation);
+  //e2->orientation = (struct vector3f) {1.0f, 0.5f, 0.0f};
+  e2->pitch = 45.0f;
+  e2->yaw = 0.0f;
+  //vector3f_normalise(&e2->orientation);
   e2->force = 0.9f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
@@ -331,8 +335,10 @@ static void init_psys(void) {
 
   e2 = emitter_new(NULL);
   e2->position = (struct vector3f) {-50.0f, 0.0f, 50.0f};
-  e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
-  vector3f_normalise(&e2->orientation);
+  //e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
+  e2->pitch = 45.0f;
+  e2->yaw = 45.0f;
+  //vector3f_normalise(&e2->orientation);
   e2->force = 0.9f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);

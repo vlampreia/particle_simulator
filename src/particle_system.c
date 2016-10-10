@@ -109,28 +109,29 @@ static void _update_particle(struct particle_system *s, struct particle *p, int 
   p->pos.y += p->velocity.y * dt;
   p->pos.z += p->velocity.z * dt;
 
-  for (size_t i=0; i<s->particles->size; ++i) {
-    struct particle *_p = s->particles->elements[i];
-    if (_p == p || !_p->active) continue;
-    if (
-      (int)p->pos.x >= (int)_p->pos.x -5 && (int)p->pos.x <= (int)_p->pos.x + 5 &&
-      (int)p->pos.y >= (int)_p->pos.y -5 && (int)p->pos.y <= (int)_p->pos.y + 5 &&
-      (int)p->pos.z >= (int)_p->pos.z -5 && (int)p->pos.z <= (int)_p->pos.z + 5
-    ) {
-      double vx = p->velocity.x;
-      double vy = p->velocity.y;
-      double vz = p->velocity.z;
-
-      p->velocity.x = _p->velocity.x;
-      p->velocity.y = _p->velocity.y;
-      p->velocity.z = _p->velocity.z;
-
-      _p->velocity.x = vx;
-      _p->velocity.y = vy;
-      _p->velocity.z = vz;
-      break;
-    }
-  }
+  //  particle-particle collision code is suboptimal..
+//  for (size_t i=0; i<s->particles->size; ++i) {
+//    struct particle *_p = s->particles->elements[i];
+//    if (_p == p || !_p->active) continue;
+//    if (
+//      (int)p->pos.x >= (int)_p->pos.x -5 && (int)p->pos.x <= (int)_p->pos.x + 5 &&
+//      (int)p->pos.y >= (int)_p->pos.y -5 && (int)p->pos.y <= (int)_p->pos.y + 5 &&
+//      (int)p->pos.z >= (int)_p->pos.z -5 && (int)p->pos.z <= (int)_p->pos.z + 5
+//    ) {
+//      double vx = p->velocity.x;
+//      double vy = p->velocity.y;
+//      double vz = p->velocity.z;
+//
+//      p->velocity.x = _p->velocity.x;
+//      p->velocity.y = _p->velocity.y;
+//      p->velocity.z = _p->velocity.z;
+//
+//      _p->velocity.x = vx;
+//      _p->velocity.y = vy;
+//      _p->velocity.z = vz;
+//      break;
+//    }
+//  }
 
   if (p->pos.y <= 0.0f) {
     p->pos.y = 0.0f;

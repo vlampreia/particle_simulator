@@ -10,6 +10,7 @@ struct particle *particle_new() {
   p->pos = (struct vector3f) {0.0f, 0.0f, 0.0f};
   p->acceleration = (struct vector3f) {0.0f, 0.0f, 0.0f};
   p->velocity = (struct vector3f) {0.0f, 0.0f, 0.0f};
+  p->color = (struct vector3f) {0.0f, 0.0f, 0.0f};
 
   p->mass = 1.0f;
 

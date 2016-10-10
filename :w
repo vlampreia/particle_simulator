@@ -73,8 +73,8 @@ static void _init_particle(struct emitter *e, struct particle *p) {
   particle_copy(e->base_particle, p);
   vector3f_copy(&e->position, &p->pos);
 
-  p->velocity.x = e->force * cos(e->yaw * DEG_TO_RAD);
-  p->velocity.y = e->force * sin(e->pitch   * DEG_TO_RAD);
-  p->velocity.z = e->force * -sin(-e->yaw * DEG_TO_RAD);
-  //vector3f_normalise(&p->velocity);
+  p->velocity.x = e->force * -sin(e->yaw * DEG_TO_RAD) * cos(e->pitch * DEG_TO_RAD);
+  p->velocity.y = e->force * -sin(e->yaw   * DEG_TO_RAD);
+  p->velocity.z = -e->force *  cos(e->pitch * DEG_TO_RAD) * cos(e->yaw * DEG_TO_RAD);
+  vector3f_normalise(&p->velocity);
 }
