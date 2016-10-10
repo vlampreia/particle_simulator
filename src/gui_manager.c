@@ -30,6 +30,27 @@ void gui_manager_add_element(struct gui_manager *m, struct gui_element *e) {
 }
 
 
+struct gui_element *gui_manager_new_element(struct gui_manager *m, const char *str, void(*callback)(void)) {
+  struct gui_element *pe = m->elements->elements[m->elements->size-1];
+  int x, y;
+  if (!pe) {
+    x = m->left; y = m->top;
+  } else {
+    if (pe->str == NULL) {
+      x = m->left;
+      y -= pe->height + 5;
+    } else {
+      x = pe->x + pe->width + 5;
+      y = pe->y;
+    }
+  }
+
+  struct gui_element *e = gui_element_new(x, y, 0, 0, str, callback);
+  gui_manager_add_element(m, e);
+  return e;
+}
+
+
 void gui_manager_draw(struct gui_manager *m) {
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
@@ -71,7 +92,9 @@ void gui_manager_event_click(struct gui_manager *m, int x, int y, int state) {
 }
 
 
-void gui_manager_set_dimensions(struct gui_manager *m, int width, int height) {
+void gui_manager_set_dimensions(struct gui_manager *m, int width, int height, int top, int left) {
   m->w_width = width;
   m->w_height = height;
+  m->top = top;
+  m->left = left;
 }

@@ -18,7 +18,7 @@ struct particle *particle_new() {
 
   p->active = 0;
 
-  p->bounce = 0.75f;
+  p->bounce = 0.0f;
 
   return p;
 }
@@ -35,8 +35,10 @@ void particle_copy(struct particle *s, struct particle *t) {
 
   vector3f_copy(&s->acceleration, &t->acceleration);
   vector3f_copy(&s->velocity, &t->velocity);
+  vector3f_copy(&s->color, &t->color);
 
   t->mass = s->mass;
   t->tod_usec = s->tod_usec;
   t->active = s->active;
+  t->bounce = s->bounce;
 }

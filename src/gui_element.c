@@ -25,7 +25,8 @@ struct gui_element *gui_element_new(
   if (height <= 0) e->height = 20;
   else e->height = height;
 
-  if (str) {
+  e->str = NULL;
+  if (str != NULL) {
     e->str = malloc(sizeof(str));
     strcpy(e->str, str);
   }
@@ -58,7 +59,9 @@ void gui_element_set_dimensions(struct gui_element *e, int width, int height) {
 }
 
 void gui_element_set_str(struct gui_element *e, const char *str, int resize) {
-  e->str = realloc(e->str, sizeof(str));
+  char *nstr = realloc(e->str, sizeof(str));
+  if (!nstr) return;
+  e->str = nstr;
   strcpy(e->str, str);
 
   if (resize) {

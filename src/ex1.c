@@ -69,10 +69,15 @@ static struct gui_element *txt_mspf     = NULL;
 static struct gui_element *txt_pcount   = NULL;
 
 static struct gui_element *btn_fire     = NULL;
+static struct gui_element *btn_autoFire = NULL;
 
 static struct gui_element *txt_grav     = NULL;
 static struct gui_element *btn_incG     = NULL;
 static struct gui_element *btn_decG     = NULL;
+static struct gui_element *btn_type     = NULL;
+static struct gui_element *txt_bounce   = NULL;
+static struct gui_element *btn_incBounce = NULL;
+static struct gui_element *btn_decBounce = NULL;
 
 //------------------------------------------------------------------------------
 static void _gui_update_gravtext() {
@@ -104,10 +109,10 @@ static void _set_ctrl_mode(int mode) {
 static void initialise_particle(struct particle *p) {
   p->mass = 0.2f + myRandom();
   p->velocity.x = 0.0f;//myRandom() * -0.8f;
-  p->velocity.y = 0.55f;
-  p->velocity.z = -0.1f;
+  p->velocity.y = 0.0f;
+  p->velocity.z = 0.0f;
 
-  p->bounce = 0.75f;
+  p->bounce = 0.6f;
 
   vector3f_init(&p->pos);
   p->tod_usec = 24000;
@@ -143,7 +148,7 @@ static void render_particles(void) {
       if (!p->active) continue;
 
       glColor3f(p->color.x, p->color.y, p->color.z);
-      glVertex3f(p->pos.x, p->pos.y, p->pos.x);
+      glVertex3f(p->pos.x, p->pos.y, p->pos.z);
       active++;
     }
   glEnd();
@@ -304,20 +309,25 @@ static void init_psys(void) {
   struct emitter *e1 = emitter_new(NULL);
   //e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
   //vector3f_normalise(&e1->orientation);
+  e1->pitch = 80.0f;
   e1->force = 0.8f;
   e1->base_particle = particle_new();
   initialise_particle(e1->base_particle);
+  e1->base_particle->color = (struct vector3f){0.0f, 1.0f, 0.0f};
   e1->frequency = 100;
   particle_system_add_emitter(_pSystem, e1);
 
   for (int i=0; i<7; ++i) {
     struct emitter *e = emitter_new(NULL);
+    e->pitch = 20.0f + i*10;
+    e->yaw += i*40;
     //e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     //vector3f_normalise(&e->orientation);
     e->force = 0.8f  - 0.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
-    e->frequency = 100;
+    e->base_particle->color = (struct vector3f){1.0f, 0.0f, 0.0f};
+    e->frequency = 1;
     particle_system_add_emitter(_pSystem, e);
   }
 
@@ -330,6 +340,7 @@ static void init_psys(void) {
   e2->force = 0.9f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
+  e2->base_particle->color = (struct vector3f){1.0f, 1.0f, 0.0f};
   e2->frequency = 1;
   particle_system_add_emitter(_pSystem, e2);
 
@@ -342,6 +353,7 @@ static void init_psys(void) {
   e2->force = 0.9f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
+  e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->frequency = 1;
   particle_system_add_emitter(_pSystem, e2);
 }
@@ -350,26 +362,25 @@ static void init_psys(void) {
 
 static void init_gui(void) {
   _guiManager = gui_manager_new();
-  gui_manager_set_dimensions(_guiManager, _window_width, _window_height);
+  gui_manager_set_dimensions(_guiManager, _window_width, _window_height, 200, 10);
 
-  txt_fps      = gui_element_new(10, 200, 95, 0, "FPS: 1000", NULL);
-  txt_mspf     = gui_element_new(110, 200, 100, 0, "MSPF: 1000", NULL);
-  txt_pcount   = gui_element_new(215, 200, 0, 0, "Particles: 0", NULL);
-  gui_manager_add_element(_guiManager, txt_fps);
-  gui_manager_add_element(_guiManager, txt_mspf);
-  gui_manager_add_element(_guiManager, txt_pcount);
+  txt_fps    = gui_manager_new_element(_guiManager, "FPS: 1000", NULL);
+  txt_mspf   = gui_manager_new_element(_guiManager, "MSPF: 1000", NULL);
+  txt_pcount = gui_manager_new_element(_guiManager,"Particles: 0", NULL);
 
-  txt_ctrlMode = gui_element_new(10, 170, 200, 0, "Emitter: 0", NULL);
-  btn_fire = gui_element_new(10, 145, 0, 0, "Fire", myCb);
-  gui_manager_add_element(_guiManager, txt_ctrlMode);
-  gui_manager_add_element(_guiManager, btn_fire);
+  gui_manager_new_element(_guiManager,NULL,NULL);
+  txt_grav = gui_manager_new_element(_guiManager, "Gravity 0.0000", NULL);
+  btn_decG = gui_manager_new_element(_guiManager, "-", _cb_decGrav);
+  btn_incG = gui_manager_new_element(_guiManager, "+", _cb_incGrav);
 
-  txt_grav = gui_element_new(10, 115, 135, 0, "Gravity 0.0000", NULL);
-  btn_decG = gui_element_new(150, 115, 20, 0, "-", _cb_decGrav);
-  btn_incG = gui_element_new(175, 115, 20, 0, "+", _cb_incGrav);
-  gui_manager_add_element(_guiManager, txt_grav);
-  gui_manager_add_element(_guiManager, btn_decG);
-  gui_manager_add_element(_guiManager, btn_incG);
+  gui_manager_new_element(_guiManager,NULL,NULL);
+  txt_ctrlMode = gui_manager_new_element(_guiManager, "Emitter: 0", NULL);
+  btn_autoFire = gui_manager_new_element(_guiManager, "Auto Emit", NULL);
+  btn_fire     = gui_manager_new_element(_guiManager, "Emit", myCb);
+  btn_type     = gui_manager_new_element(_guiManager, "GL_POINT", NULL);
+  txt_bounce   = gui_manager_new_element(_guiManager, "Bounce: 0.000", NULL);
+  btn_decBounce = gui_manager_new_element(_guiManager, "-", NULL);
+  btn_incBounce = gui_manager_new_element(_guiManager, "+", NULL);
 }
 
 //------------------------------------------------------------------------------
@@ -393,7 +404,7 @@ static void reshape(int width, int height)
 {
   _window_width = width;
   _window_height = height;
-  gui_manager_set_dimensions(_guiManager, width, height);
+  gui_manager_set_dimensions(_guiManager, width, height, 200, 10);
   glClearColor(0.9, 0.9, 0.9, 1.0);
   glViewport(0, 0, (GLsizei)width, (GLsizei)height);
   glMatrixMode(GL_PROJECTION);
