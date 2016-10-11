@@ -128,6 +128,7 @@ static void initialise_particle(struct particle *p) {
   p->tod_usec = 24000;
 
   p->color = (struct vector3f) {0.2f, 0.2f, 0.2};
+  p->color_alpha = 0.7f;
 }
 
 //------------------------------------------------------------------------------
@@ -152,6 +153,7 @@ static void step_simulation(void) {
 static void render_particles(void) {
   int active = 0;
 
+  glPointSize(5.0f);
   glBegin(GL_POINTS);
     for (size_t i=0; i<_pSystem->particles->size; ++i) {
       struct particle *p = (struct particle*)_pSystem->particles->elements[i];
@@ -202,9 +204,28 @@ static void display(void)
     glVertex3f( width, 0.0f, -depth);
   glEnd();
 
+  double x,y,z;
+  GLdouble modelview[16];
+  GLdouble projection[16];
+  GLint viewport[4];
+  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+  glGetDoublev(GL_PROJECTION_MATRIX, projection);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  GLfloat _z;
+  glReadPixels(_mouse_x,viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT,GL_FLOAT, &_z);
+  gluUnProject(
+    _mouse_x, viewport[3] - _mouse_y, _z,
+    modelview, projection, viewport,
+    &x, &y, &z
+  );
+  glPushMatrix();
+    glTranslatef(x, 0.0f, z);
+    glCallList(axisList);
+  glPopMatrix();
+  render_particles();
 
   glBegin(GL_TRIANGLES);
-  glColor3f(1.0f, 1.0f, 1.0f);
+  glColor4f(0.6f, 0.6f, 0.6f, 0.5f);
     glVertex3f(width, 0.0f,    depth);
     glVertex3f(width, height,  depth);
     glVertex3f(width, height, -depth);
@@ -219,7 +240,7 @@ static void display(void)
     glVertex3f(-width, 0.0f,   -depth);
     glVertex3f(-width, 0.0f,    depth);
 
-  glColor3f(0.98f, 0.98f, 0.98f);
+  glColor4f(0.8f, 0.8f, 0.8f, 0.5f);
     glVertex3f(-width, 0.0f,   depth);
     glVertex3f( width, 0.0f,   depth);
     glVertex3f( width, height, depth);
@@ -236,32 +257,7 @@ static void display(void)
   glEnd();
 
   if(axisEnabled) glCallList(axisList);
-  double x,y,z;
-  GLdouble modelview[16];
-  GLdouble projection[16];
-  GLint viewport[4];
-  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-  glGetDoublev(GL_PROJECTION_MATRIX, projection);
-  glGetIntegerv(GL_VIEWPORT, viewport);
-  GLfloat _z;
-  glReadPixels(_mouse_x,viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT,GL_FLOAT, &_z);
-  printf("%f\n", _z);
-  gluUnProject(
-    _mouse_x, viewport[3] - _mouse_y, 1.0f,
-    modelview, projection, viewport,
-    &x, &y, &z
-  );
-  glColor3f(1.0f, 0.0f, 0.0f);
-  glPointSize(40.0f);
-  glBegin(GL_POINTS);
-    glVertex3f(x,0.0f,z);
-  glEnd();
-  printf("%d %d %d %d\n", viewport[0], viewport[1], viewport[2], viewport[3]);
-  printf("%f %f %f\n", x,y,z);
-  printf("%d %d\n", _mouse_x, _mouse_y);
 
-  glPointSize(4.0f);
-  render_particles();
 
   //mouse stuff
 
@@ -488,7 +484,7 @@ static void init_glut(int argc, char *argv[])
   glutInit(&argc, argv);
   glutInitWindowSize(_window_width, _window_height);
   glutInitWindowPosition(100, 100);
-  glutInitDisplayMode(GLUT_DOUBLE);
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_ALPHA | GLUT_DEPTH | GLUT_MULTISAMPLE);
   glutCreateWindow("COMP37111 Particles");
   glutIdleFunc(step_simulation);
   glutDisplayFunc(display);
@@ -521,13 +517,14 @@ int main(int argc, char *argv[])
   camera_set_yaw(&_camera, 0.0f);
 
   glEnable(GL_POINT_SMOOTH);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
   glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LESS);
-  glDepthRange(0.0f, 1.0f);
+//  glDepthRange(0.0f, 1.0f);
   //glEnable(GL_CULL_FACE);
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);
   glutMainLoop();

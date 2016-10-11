@@ -82,10 +82,6 @@ int gui_element_is_inside(struct gui_element *e, int x, int y) {
 }
 
 void gui_element_draw(struct gui_element *e) {
-  if (e->callback == NULL) glColor4f(0.7f, 0.7f, 0.7f, 0.7f);
-  else glColor4f(0.4f, 0.55f, 0.9f, 0.9f);
-
-  glCallList(e->compiled_list);
 
   if (!e->str) return;
   glColor3f(0.3f, 0.3f, 0.3f);
@@ -97,6 +93,10 @@ void gui_element_draw(struct gui_element *e) {
     ++i;
     x_offset += GUI_ELEMENT_CHAR_WIDTH;
   }
+  if (e->callback == NULL) glColor4f(0.7f, 0.7f, 0.7f, 0.7f);
+  else glColor4f(0.4f, 0.55f, 0.9f, 0.9f);
+
+  glCallList(e->compiled_list);
 }
 
 static void _compile(struct gui_element *e) {
