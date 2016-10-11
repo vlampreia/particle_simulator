@@ -19,6 +19,7 @@ struct particle {
   int active;
 
   struct vector3f color;
+  double color_alpha;
 };
 
 

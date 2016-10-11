@@ -37,6 +37,8 @@ static int _window_height = 600;
 static int _ctrl_mode = 0;
 
 static int _distance = 800;
+static int _mouse_x = 0;
+static int _mouse_y = 0;
 static int _mouse_x_p = 0;
 static int _mouse_y_p = 0;
 static double _yaw = 0.0f;
@@ -78,6 +80,14 @@ static struct gui_element *btn_type     = NULL;
 static struct gui_element *txt_bounce   = NULL;
 static struct gui_element *btn_incBounce = NULL;
 static struct gui_element *btn_decBounce = NULL;
+
+static struct gui_element *txt_rate = NULL;
+static struct gui_element *btn_incRate = NULL;
+static struct gui_element *btn_decRate = NULL;
+
+static struct gui_element *txt_mass = NULL;
+static struct gui_element *btn_decMass = NULL;
+static struct gui_element *btn_incMass = NULL;
 
 //------------------------------------------------------------------------------
 static void _gui_update_gravtext() {
@@ -147,7 +157,7 @@ static void render_particles(void) {
       struct particle *p = (struct particle*)_pSystem->particles->elements[i];
       if (!p->active) continue;
 
-      glColor3f(p->color.x, p->color.y, p->color.z);
+      glColor4f(p->color.x, p->color.y, p->color.z, p->color_alpha);
       glVertex3f(p->pos.x, p->pos.y, p->pos.z);
       active++;
     }
@@ -177,11 +187,22 @@ static void display(void)
             0.0, 1.0, 0.0);
   // Clear the screen
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  // If enabled, draw coordinate axis
 
   int height = 400;
   int width = 400;
   int depth = 400;
+
+  glBegin(GL_TRIANGLES);
+  glColor3f(0.95f, 0.95f, 0.95f);
+    glVertex3f( width, 0.0f,  depth);
+    glVertex3f(-width, 0.0f,  depth);
+    glVertex3f(-width, 0.0f, -depth);
+    glVertex3f(-width, 0.0f, -depth);
+    glVertex3f( width, 0.0f,  depth);
+    glVertex3f( width, 0.0f, -depth);
+  glEnd();
+
+
   glBegin(GL_TRIANGLES);
   glColor3f(1.0f, 1.0f, 1.0f);
     glVertex3f(width, 0.0f,    depth);
@@ -212,21 +233,37 @@ static void display(void)
     glVertex3f( width, height, -depth);
     glVertex3f(-width, height, -depth);
     glVertex3f(-width, 0.0f,   -depth);
-
-
-  glColor3f(0.95f, 0.95f, 0.95f);
-    glVertex3f( width, 0.0f,  depth);
-    glVertex3f(-width, 0.0f,  depth);
-    glVertex3f(-width, 0.0f, -depth);
-    glVertex3f(-width, 0.0f, -depth);
-    glVertex3f( width, 0.0f,  depth);
-    glVertex3f( width, 0.0f, -depth);
   glEnd();
 
   if(axisEnabled) glCallList(axisList);
+  double x,y,z;
+  GLdouble modelview[16];
+  GLdouble projection[16];
+  GLint viewport[4];
+  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+  glGetDoublev(GL_PROJECTION_MATRIX, projection);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  GLfloat _z;
+  glReadPixels(_mouse_x,viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT,GL_FLOAT, &_z);
+  printf("%f\n", _z);
+  gluUnProject(
+    _mouse_x, viewport[3] - _mouse_y, 1.0f,
+    modelview, projection, viewport,
+    &x, &y, &z
+  );
+  glColor3f(1.0f, 0.0f, 0.0f);
+  glPointSize(40.0f);
+  glBegin(GL_POINTS);
+    glVertex3f(x,0.0f,z);
+  glEnd();
+  printf("%d %d %d %d\n", viewport[0], viewport[1], viewport[2], viewport[3]);
+  printf("%f %f %f\n", x,y,z);
+  printf("%d %d\n", _mouse_x, _mouse_y);
 
   glPointSize(4.0f);
   render_particles();
+
+  //mouse stuff
 
   gui_manager_draw(_guiManager);
 
@@ -374,18 +411,28 @@ static void init_gui(void) {
   btn_incG = gui_manager_new_element(_guiManager, "+", _cb_incGrav);
 
   gui_manager_new_element(_guiManager,NULL,NULL);
-  txt_ctrlMode = gui_manager_new_element(_guiManager, "Emitter: 0", NULL);
-  btn_autoFire = gui_manager_new_element(_guiManager, "Auto Emit", NULL);
-  btn_fire     = gui_manager_new_element(_guiManager, "Emit", myCb);
-  btn_type     = gui_manager_new_element(_guiManager, "GL_POINT", NULL);
-  txt_bounce   = gui_manager_new_element(_guiManager, "Bounce: 0.000", NULL);
+  gui_manager_new_element(_guiManager,NULL,NULL);
+  txt_ctrlMode  = gui_manager_new_element(_guiManager, "Emitter: 0", NULL);
+  btn_autoFire  = gui_manager_new_element(_guiManager, "Auto Emit", NULL);
+  btn_fire      = gui_manager_new_element(_guiManager, "Emit", myCb);
+  txt_rate      = gui_manager_new_element(_guiManager, "Rate: 1000", NULL);
+  btn_decRate   = gui_manager_new_element(_guiManager, "-", NULL);
+  btn_incRate   = gui_manager_new_element(_guiManager, "+", NULL);
+  gui_manager_new_element(_guiManager,NULL,NULL);
+  btn_type      = gui_manager_new_element(_guiManager, "GL_POINT", NULL);
+  txt_bounce    = gui_manager_new_element(_guiManager, "Bounce: 0.000", NULL);
   btn_decBounce = gui_manager_new_element(_guiManager, "-", NULL);
   btn_incBounce = gui_manager_new_element(_guiManager, "+", NULL);
+  txt_mass      = gui_manager_new_element(_guiManager, "Mass: 1.00", NULL);
+  btn_decMass   = gui_manager_new_element(_guiManager, "-", NULL);
+  btn_incMass   = gui_manager_new_element(_guiManager, "+", NULL);
 }
 
 //------------------------------------------------------------------------------
 
 static void mouse_move(int x, int y) {
+  _mouse_x = x;
+  _mouse_y = y;
   if (!_dragging) return;
 
   int dx = (x - _mouse_x_p) * 0.5f;
@@ -409,7 +456,7 @@ static void reshape(int width, int height)
   glViewport(0, 0, (GLsizei)width, (GLsizei)height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(60, (GLfloat)width / (GLfloat)height, 1.0, 10000.0);
+  gluPerspective(60, (GLfloat)width / (GLfloat)height, 10.0, 10000.0);
   glMatrixMode(GL_MODELVIEW);
 }
 
@@ -448,6 +495,7 @@ static void init_glut(int argc, char *argv[])
   glutKeyboardFunc(keyboard);
   glutMouseFunc(mouse);
   glutMotionFunc(mouse_move);
+  glutPassiveMotionFunc(mouse_move);
   glutReshapeFunc(reshape);
 
   //glEnable(GL_LIGHTING);
@@ -476,8 +524,10 @@ int main(int argc, char *argv[])
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
-  //glEnable(GL_DEPTH_TEST);
-  //glDepthFunc(GL_LESS);
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LESS);
+  glDepthRange(0.0f, 1.0f);
   //glEnable(GL_CULL_FACE);
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);
   glutMainLoop();

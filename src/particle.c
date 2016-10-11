@@ -11,6 +11,7 @@ struct particle *particle_new() {
   p->acceleration = (struct vector3f) {0.0f, 0.0f, 0.0f};
   p->velocity = (struct vector3f) {0.0f, 0.0f, 0.0f};
   p->color = (struct vector3f) {0.0f, 0.0f, 0.0f};
+  p->color_alpha = 1.0f;
 
   p->mass = 1.0f;
 
@@ -35,7 +36,9 @@ void particle_copy(struct particle *s, struct particle *t) {
 
   vector3f_copy(&s->acceleration, &t->acceleration);
   vector3f_copy(&s->velocity, &t->velocity);
+
   vector3f_copy(&s->color, &t->color);
+  t->color_alpha = s->color_alpha;
 
   t->mass = s->mass;
   t->tod_usec = s->tod_usec;

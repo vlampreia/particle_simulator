@@ -31,14 +31,14 @@ void gui_manager_add_element(struct gui_manager *m, struct gui_element *e) {
 
 
 struct gui_element *gui_manager_new_element(struct gui_manager *m, const char *str, void(*callback)(void)) {
-  struct gui_element *pe = m->elements->elements[m->elements->size-1];
-  int x, y;
-  if (!pe) {
-    x = m->left; y = m->top;
-  } else {
+  struct gui_element *pe = NULL;
+  if (m->elements->size > 0) pe = m->elements->elements[m->elements->size-1];
+
+  int x = m->left, y = m->top;
+  if (pe != NULL) {
     if (pe->str == NULL) {
       x = m->left;
-      y -= pe->height + 5;
+      y = pe->y - (pe->height + 5);
     } else {
       x = pe->x + pe->width + 5;
       y = pe->y;
