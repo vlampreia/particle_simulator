@@ -25,6 +25,6 @@ void  gui_manager_draw            (struct gui_manager *m);
 
 void  gui_manager_set_dimensions  (struct gui_manager *m, int width, int height, int top, int left);
 
-void  gui_manager_event_click     (struct gui_manager *m, int x, int y, int state);
+int   gui_manager_event_click     (struct gui_manager *m, int x, int y, int state);
 
 #endif

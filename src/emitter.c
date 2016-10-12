@@ -68,13 +68,20 @@ void emitter_set_particle_pool(struct emitter *e, struct vector *pool) {
   e->particle_pool = pool;
 }
 
+static double myRandom(void)
+{
+  return ((-RAND_MAX/2 + rand())/(double)RAND_MAX/2);
+}
 
 static void _init_particle(struct emitter *e, struct particle *p) {
   particle_copy(e->base_particle, p);
   vector3f_copy(&e->position, &p->pos);
 
-  p->velocity.x = e->force * -cos(e->pitch * DEG_TO_RAD) * sin(e->yaw * DEG_TO_RAD);
-  p->velocity.y = e->force * sin(e->pitch   * DEG_TO_RAD);
-  p->velocity.z = e->force * cos(e->pitch * DEG_TO_RAD) * cos(e->yaw * DEG_TO_RAD);
+  double pmod = e->vert_angle * myRandom() * DEG_TO_RAD;
+  double ymod = e->horiz_angle * myRandom() * DEG_TO_RAD;
+
+  p->velocity.x = e->force * -cos(e->pitch * DEG_TO_RAD + pmod) * sin(e->yaw * DEG_TO_RAD + ymod);
+  p->velocity.y = e->force *  sin(e->pitch * DEG_TO_RAD + pmod);
+  p->velocity.z = e->force *  cos(e->pitch * DEG_TO_RAD + pmod) * cos(e->yaw * DEG_TO_RAD + ymod);
   vector3f_normalise(&p->velocity);
 }

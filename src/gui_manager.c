@@ -74,8 +74,8 @@ void gui_manager_draw(struct gui_manager *m) {
   glPopMatrix();
 }
 
-void gui_manager_event_click(struct gui_manager *m, int x, int y, int state) {
-  if (state != GLUT_DOWN) return;
+int gui_manager_event_click(struct gui_manager *m, int x, int y, int state) {
+  if (state != GLUT_DOWN) return 0;
 
   int ry = m->w_height - y;
 
@@ -85,10 +85,10 @@ void gui_manager_event_click(struct gui_manager *m, int x, int y, int state) {
 
     if (gui_element_is_inside(e, x, ry)) {
       e->callback();
-
-      break;
+      return 1;
     }
   }
+  return 0;
 }
 
 

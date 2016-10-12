@@ -123,9 +123,9 @@ static void _update_particle(struct particle_system *s, struct particle *p, int 
 
   //vector3f_normalise(p->velocity);
 
-  p->pos.x += p->velocity.x * dt;
-  p->pos.y += p->velocity.y * dt;
-  p->pos.z += p->velocity.z * dt;
+  p->pos.x += 20 * p->velocity.x;
+  p->pos.y += 20 * p->velocity.y;
+  p->pos.z += 20 * p->velocity.z;
 
   //  particle-particle collision code is suboptimal..
 //  for (size_t i=0; i<s->particles->size; ++i) {
