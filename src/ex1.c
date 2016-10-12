@@ -521,10 +521,11 @@ static void init_psys(void) {
   //e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
   //vector3f_normalise(&e1->orientation);
   e1->pitch = 80.0f;
-  e1->force = 0.8f;
+  e1->force = 40.8f;
   e1->base_particle = particle_new();
   initialise_particle(e1->base_particle);
   e1->base_particle->color = (struct vector3f){0.0f, 1.0f, 0.0f};
+  e1->base_particle->collision_chaos = 0.0f;
   e1->frequency = 100;
   particle_system_add_emitter(_pSystem, e1);
 
@@ -534,7 +535,7 @@ static void init_psys(void) {
     e->yaw += i*40;
     //e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     //vector3f_normalise(&e->orientation);
-    e->force = 0.8f  - 0.5f * myRandom();
+    e->force = 45.8f  - 1.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
     e->base_particle->color = (struct vector3f){1.0f, 0.0f, 0.0f};
@@ -550,9 +551,10 @@ static void init_psys(void) {
   e2->pitch = 45.0f;
   e2->yaw = 0.0f;
   //vector3f_normalise(&e2->orientation);
-  e2->force = 0.9f;
+  e2->force = 25.9f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
+  e2->base_particle->mass = 1.0f;
   e2->base_particle->color = (struct vector3f){1.0f, 1.0f, 0.0f};
   e2->frequency = 1;
   particle_system_add_emitter(_pSystem, e2);
@@ -563,10 +565,11 @@ static void init_psys(void) {
   e2->pitch = 45.0f;
   e2->yaw = 45.0f;
   //vector3f_normalise(&e2->orientation);
-  e2->force = 0.9f;
+  e2->force = 40.0f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
   e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
+  e2->base_particle->collision_chaos = 0.01f;
   e2->frequency = 1;
   particle_system_add_emitter(_pSystem, e2);
 }

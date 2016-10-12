@@ -40,7 +40,7 @@ struct particle_system *particle_system_new(size_t numParticles) {
     vector_add(s->particles, particle_new());
   }
 
-  s->gravity = 0.02f;
+  s->gravity = 1.00f;
 
   return s;
 }
@@ -103,7 +103,7 @@ static void _update_particle(struct particle_system *s, struct particle *p, int 
 
   double force = -s->gravity * p->mass;
   double friction = 0.995f;
-  double collision_chaos = 0.1f;
+  //double collision_chaos = 0.1f;
 
 
   //force is static down 1 for now
@@ -123,9 +123,9 @@ static void _update_particle(struct particle_system *s, struct particle *p, int 
 
   //vector3f_normalise(p->velocity);
 
-  p->pos.x += 20 * p->velocity.x;
-  p->pos.y += 20 * p->velocity.y;
-  p->pos.z += 20 * p->velocity.z;
+  p->pos.x += p->velocity.x;
+  p->pos.y += p->velocity.y;
+  p->pos.z += p->velocity.z;
 
   //  particle-particle collision code is suboptimal..
 //  for (size_t i=0; i<s->particles->size; ++i) {
@@ -153,7 +153,7 @@ static void _update_particle(struct particle_system *s, struct particle *p, int 
 
   if (p->pos.y <= 0.0f) {
     p->pos.y = 0.0f;
-    p->velocity.y = -p->velocity.y * p->bounce * _clampedRand(1.0f-collision_chaos, 1.0f);
+    p->velocity.y = -p->velocity.y * p->bounce * _clampedRand(1.0f-p->collision_chaos, 1.0f);
     //TODO: this is not real physics, makes surfaces look bumpy though
     p->velocity.x += 0.001 * myRandom();
     p->velocity.z += 0.001 * myRandom();
@@ -163,25 +163,25 @@ static void _update_particle(struct particle_system *s, struct particle *p, int 
 
   if (p->pos.x >= 400.0f) {
     p->pos.x = 400.0f;
-    p->velocity.x = friction * -p->velocity.x * p->bounce * _clampedRand(1.0f-collision_chaos, p->bounce);
-    p->velocity.z += collision_chaos * myRandom();
+    p->velocity.x = friction * -p->velocity.x * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+    p->velocity.z += p->collision_chaos * myRandom();
   }
 
   if (p->pos.x <= -400.0f) {
     p->pos.x = -400.0f;
-    p->velocity.x = friction * -p->velocity.x * p->bounce * _clampedRand(1.0f-collision_chaos, p->bounce);
-    p->velocity.z += collision_chaos * myRandom();
+    p->velocity.x = friction * -p->velocity.x * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+    p->velocity.z += p->collision_chaos * myRandom();
   }
 
   if (p->pos.z >= 400.0f) {
     p->pos.z = 400.0f;
-    p->velocity.z = friction * -p->velocity.z * p->bounce * _clampedRand(1.0f-collision_chaos, p->bounce);
-    p->velocity.x += collision_chaos * myRandom();
+    p->velocity.z = friction * -p->velocity.z * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+    p->velocity.x += p->collision_chaos * myRandom();
   }
 
   if (p->pos.z <= -400.0f) {
     p->pos.z = -400.0f;
-    p->velocity.z = friction * -p->velocity.z * p->bounce * _clampedRand(1.0f-collision_chaos, p->bounce);
-    p->velocity.x += collision_chaos * myRandom();
+    p->velocity.z = friction * -p->velocity.z * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+    p->velocity.x += p->collision_chaos * myRandom();
   }
 }

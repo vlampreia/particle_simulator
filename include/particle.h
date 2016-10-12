@@ -11,6 +11,7 @@ struct particle {
   struct vector3f velocity;
 
   double mass;
+  double collision_chaos;
 
   long tod_usec;
 

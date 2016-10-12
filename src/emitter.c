@@ -80,8 +80,11 @@ static void _init_particle(struct emitter *e, struct particle *p) {
   double pmod = e->vert_angle * myRandom() * DEG_TO_RAD;
   double ymod = e->horiz_angle * myRandom() * DEG_TO_RAD;
 
-  p->velocity.x = e->force * -cos(e->pitch * DEG_TO_RAD + pmod) * sin(e->yaw * DEG_TO_RAD + ymod);
-  p->velocity.y = e->force *  sin(e->pitch * DEG_TO_RAD + pmod);
-  p->velocity.z = e->force *  cos(e->pitch * DEG_TO_RAD + pmod) * cos(e->yaw * DEG_TO_RAD + ymod);
+  p->velocity.x = -cos(e->pitch * DEG_TO_RAD + pmod) * sin(e->yaw * DEG_TO_RAD + ymod);
+  p->velocity.y =  sin(e->pitch * DEG_TO_RAD + pmod);
+  p->velocity.z =  cos(e->pitch * DEG_TO_RAD + pmod) * cos(e->yaw * DEG_TO_RAD + ymod);
   vector3f_normalise(&p->velocity);
+  p->velocity.x *= e->force;
+  p->velocity.y *= e->force;
+  p->velocity.z *= e->force;
 }

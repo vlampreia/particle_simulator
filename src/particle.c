@@ -13,6 +13,8 @@ struct particle *particle_new() {
   p->color = (struct vector3f) {0.0f, 0.0f, 0.0f};
   p->color_alpha = 1.0f;
 
+  p->collision_chaos = 0.0f;
+
   p->mass = 1.0f;
 
   p->tod_usec = 0l;
@@ -44,4 +46,5 @@ void particle_copy(struct particle *s, struct particle *t) {
   t->tod_usec = s->tod_usec;
   t->active = s->active;
   t->bounce = s->bounce;
+  t->collision_chaos = s->collision_chaos;
 }
