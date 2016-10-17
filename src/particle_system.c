@@ -86,6 +86,7 @@ static inline double _max_double(double a, double b) {
 }
 
 static void _update_particle(struct particle_system *s, struct particle *p, int t, int dt) {
+  if (!p->active) return;
   if (p->tod_usec <= 0) {
     p->active = 0;
     return;

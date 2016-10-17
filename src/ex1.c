@@ -30,7 +30,7 @@ static double myRandom(void)
 
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
-#define NUM_PARTICLES 100000
+#define NUM_PARTICLES 1000000
 #define NUM_EMITTERS 2
 static int _window_width = 800;
 static int _window_height = 600;
