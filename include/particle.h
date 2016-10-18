@@ -4,11 +4,14 @@
 #include "vector3f.h"
 
 struct particle {
-  struct vector3f pos;
+  //struct vector3f pos;
+  GLfloat pos[3];
 
-  struct vector3f acceleration;
+  //struct vector3f acceleration;
+  GLfloat acceleration[3];
 
-  struct vector3f velocity;
+  //struct vector3f velocity;
+  GLfloat velocity[3];
 
   double mass;
   double collision_chaos;
@@ -19,8 +22,9 @@ struct particle {
 
   int active;
 
-  struct vector3f color;
-  double color_alpha;
+  GLubyte color[4];
+  //struct vector3f color;
+  //double color_alpha;
 };
 
 

@@ -30,7 +30,8 @@ static double myRandom(void)
 
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
-#define NUM_PARTICLES 1000000
+//#define NUM_PARTICLES 1000000
+  #define NUM_PARTICLES 10000
 #define NUM_EMITTERS 2
 static int _window_width = 800;
 static int _window_height = 600;
@@ -59,16 +60,21 @@ GLint    _viewport[4];
 struct {
   int lastRenderTime;
   int lastRenderDuration;
-} _statistics = {0, 0};
+
+  int lastSimTime;
+  int lastSimDuration;
+} _statistics = {0, 0, 0, 0};
 
 // Display list for coordinate axis 
 GLuint axisList;
 GLuint crosshairList;
+GLuint floorList;
+GLuint gradFloorList;
+GLuint wallsList;
 
 int AXIS_SIZE= 200;
 static int axisEnabled= 1;
 
-int ptime = 0;
 int msq = 0;
 
 
@@ -84,6 +90,8 @@ static void _toggleEdit() {
 static struct gui_element *txt_ctrlMode = NULL;
 static struct gui_element *txt_fps      = NULL;
 static struct gui_element *txt_mspf     = NULL;
+static struct gui_element *txt_sfps     = NULL;
+static struct gui_element *txt_smspf    = NULL;
 static struct gui_element *txt_pcount   = NULL;
 
 static struct gui_element *btn_fire     = NULL;
@@ -133,41 +141,52 @@ static void _set_ctrl_mode(int mode) {
 //------------------------------------------------------------------------------
 
 static void initialise_particle(struct particle *p) {
-  p->mass = 0.2f + myRandom();
-  p->velocity.x = 0.0f;//myRandom() * -0.8f;
-  p->velocity.y = 0.0f;
-  p->velocity.z = 0.0f;
+  //p->mass = 0.5f + myRandom();
+  p->mass = 40;
+  p->velocity[0] = 0.0f;//myRandom() * -0.8f;
+  p->velocity[1] = 0.0f;
+  p->velocity[2] = 0.0f;
 
   p->bounce = 0.6f;
 
-  vector3f_init(&p->pos);
+  p->pos[0] = 0.0f;
+  p->pos[1] = 0.0f;
+  p->pos[2] = 0.0f;
+  //vector3f_init(&p->pos);
   p->tod_usec = 24000;
 
-  p->color = (struct vector3f) {0.2f, 0.2f, 0.2};
-  p->color_alpha = 0.7f;
+  p->color[0] = 50;
+  p->color[1] = 50;
+  p->color[2] = 50;
+  p->color[3] = 255;
+  //p->color = {50, 50, 50, 255};
+  //p->color = (struct vector3f) {0.2f, 0.2f, 0.2};
+  //p->color_alpha = 0.7f;
 }
 
 //------------------------------------------------------------------------------
 
 static void step_simulation(void) {
   int t = glutGet(GLUT_ELAPSED_TIME);
-  int dt = t - ptime;
-  ptime = t;
+  _statistics.lastRenderDuration = t - _statistics.lastRenderTime;
+  _statistics.lastRenderTime = t;
+  _statistics.lastSimDuration = t - _statistics.lastSimTime;
+  _statistics.lastSimTime = t;
 
-  msq += dt;
+  //msq += dt;
 
-  while (msq >= 10) {
-    particle_system_step(_pSystem, t, dt);
-    msq = 0;
+  //while (msq >= 10) {
+    particle_system_step(_pSystem, t, _statistics.lastSimDuration);
+   // msq = 0;
     //msq -= 10;
-  }
+  //}
 
   glutPostRedisplay();
 }
 
 //------------------------------------------------------------------------------
 
-static void render_particles(void) {
+static inline void render_particles(void) {
   int active = 0;
 
   glPointSize(5.0f);
@@ -176,8 +195,10 @@ static void render_particles(void) {
       struct particle *p = (struct particle*)_pSystem->particles->elements[i];
       if (!p->active) continue;
 
-      glColor4f(p->color.x, p->color.y, p->color.z, p->color_alpha);
-      glVertex3f(p->pos.x, p->pos.y, p->pos.z);
+      glColor4ubv(p->color);
+      //glColor4f(p->color.x, p->color.y, p->color.z, p->color_alpha);
+      glVertex3fv(p->pos);
+      //glVertex3f(p->pos.x, p->pos.y, p->pos.z);
       active++;
     }
   glEnd();
@@ -197,12 +218,18 @@ static void display(void)
   snprintf(_gui_buffer, 256, "MSPF: %d", _statistics.lastRenderDuration);
   gui_element_set_str(txt_mspf, _gui_buffer, 0);
 
-  snprintf(_gui_buffer, 256, "FPS: %d", 1000/(_statistics.lastRenderDuration+1)* 1000);
+  snprintf(_gui_buffer, 256, "FPS: %d", 1000/(_statistics.lastRenderDuration+1));
   gui_element_set_str(txt_fps, _gui_buffer, 0);
+
+  snprintf(_gui_buffer, 256, "SIM MSPF: %d", _statistics.lastSimDuration);
+  gui_element_set_str(txt_smspf, _gui_buffer, 0);
+
+  snprintf(_gui_buffer, 256, "SIM FPS: %d", 1000/(_statistics.lastSimDuration+1));
+  gui_element_set_str(txt_sfps, _gui_buffer, 0);
 
   glLoadIdentity();
   gluLookAt(_camera.pos.x, _camera.pos.y, _camera.pos.z,
-            0.0, 0.0, 0.0,
+            0.0, 500.0, 0.0,
             0.0, 1.0, 0.0);
   // Clear the screen
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -211,90 +238,40 @@ static void display(void)
   int width = 400;
   int depth = 400;
 
-  glBegin(GL_TRIANGLES);
-  glColor3f(0.95f, 0.95f, 0.95f);
-    glVertex3f( width, 0.0f,  depth);
-    glVertex3f(-width, 0.0f,  depth);
-    glVertex3f(-width, 0.0f, -depth);
-    glVertex3f(-width, 0.0f, -depth);
-    glVertex3f( width, 0.0f,  depth);
-    glVertex3f( width, 0.0f, -depth);
-  glEnd();
-
+  glCallList(floorList);
 
   double x,y,z;
-  glGetDoublev(GL_MODELVIEW_MATRIX, _modelview);
-  glGetDoublev(GL_PROJECTION_MATRIX, _projection);
-  glGetIntegerv(GL_VIEWPORT, _viewport);
-
   GLfloat _z;
-  glReadPixels(_mouse_x, _viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT, GL_FLOAT, &_z);
-  gluUnProject(
-    _mouse_x, _viewport[3] - _mouse_y, _z,
-    _modelview, _projection, _viewport,
-    &x, &y, &z
-  );
+  if (_ctrl_edit) {
+    glGetDoublev(GL_MODELVIEW_MATRIX, _modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, _projection);
+    glGetIntegerv(GL_VIEWPORT, _viewport);
 
-  _mouseWorldPos.x = x;
-  _mouseWorldPos.y = y;
-  _mouseWorldPos.z = z;
+    glReadPixels(_mouse_x, _viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT, GL_FLOAT, &_z);
+    gluUnProject(
+      _mouse_x, _viewport[3] - _mouse_y, _z,
+      _modelview, _projection, _viewport,
+      &x, &y, &z
+    );
+  }
 
-
-  glBegin(GL_TRIANGLES);
-    glColor4f(0.95f, 0.95f, 0.95f, 1.0f);
-    glVertex3f(width, 0.0f, depth);
-    glVertex3f(-width, 0.0f, depth);
-    glColor4f(0.95f, 0.95f, 0.95f, 0.0f);
-    glVertex3f(-width, 0.0f, depth + 500.0f);
-
-    glVertex3f(-width, 0.0f, depth + 500.0f);
-    glVertex3f(width, 0.0f, depth + 500.0f);
-    glColor4f(0.95f, 0.95f, 0.95f, 1.0f);
-    glVertex3f(width, 0.0f, depth);
-
-    glVertex3f(width, 0.0f, depth);
-    glVertex3f(width, 0.0f, -depth);
-    glColor4f(0.95f, 0.95f, 0.95f, 0.0f);
-    glVertex3f(width + 500.0f, 0.0f, -depth);
-
-    glVertex3f(width + 500.0f, 0.0f, -depth);
-    glVertex3f(width + 500.0f, 0.0f, depth);
-    glColor4f(0.95f, 0.95f, 0.95f, 1.0f);
-    glVertex3f(width, 0.0f, depth);
-
-    glVertex3f(-width, 0.0f, -depth);
-    glColor4f(0.95f, 0.95f, 0.95f, 0.0f);
-    glVertex3f(-500-width, 0.0f, -depth);
-    glVertex3f(-500-width, 0.0f, depth);
-
-    glVertex3f(-500-width, 0.0f, depth);
-    glColor4f(0.95f, 0.95f, 0.95f, 1.0f);
-    glVertex3f(-width, 0.0f, -depth);
-    glVertex3f(-width, 0.0f, depth);
-
-    glVertex3f(-width, 0.0f, -depth);
-    glColor4f(0.95f, 0.95f, 0.95f, 0.0f);
-    glVertex3f(-width, 0.0f, -500-depth);
-    glVertex3f(width, 0.0f, -500-depth);
-
-    glVertex3f(width, 0.0f, -500-depth);
-    glColor4f(0.95f, 0.95f, 0.95f, 1.0f);
-    glVertex3f(-width, 0.0f, -depth);
-    glVertex3f(width, 0.0f, -depth);
-  glEnd();
-
+  glCallList(gradFloorList);
 
   if (_ctrl_edit) {
+    _mouseWorldPos.x = x;
+    _mouseWorldPos.y = y;
+    _mouseWorldPos.z = z;
+
     if(axisEnabled) glCallList(axisList);
 
     for (size_t i=0; i<_pSystem->emitters->size; ++i) {
       struct emitter *e = _pSystem->emitters->elements[i];
 
-      struct vector3f *col = &e->base_particle->color;
+      GLubyte *col = e->base_particle->color;
 
       glPointSize(10.0f);
-      if (i == _ctrl_mode) glColor3f(col->x, col->y, col->z);
-      else glColor3f(col->x/2, col->y/2, col->z/2);
+      if (i == _ctrl_mode) glColor3ubv(col);
+      else glColor3ub(col[0]/2, col[1]/2, col[2]/2);
 
       double pitch = e->pitch * DEG_TO_RAD;
       double yaw   = e->yaw * DEG_TO_RAD;
@@ -358,8 +335,8 @@ static void display(void)
       glEnd();
 
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      if (i == _ctrl_mode) glColor4f(col->x, col->y, col->z, 0.7f);
-      else glColor4f(col->x/2, col->y/2, col->z/2, 0.7f);
+      if (i == _ctrl_mode) glColor4ub(col[0], col[1], col[2], 200);
+      else glColor4ub(col[0]/2, col[1]/2, col[2]/2, 200);
 
       glBegin(GL_TRIANGLES);
         glVertex3f(e->position.x, e->position.y, e->position.z);
@@ -384,42 +361,8 @@ static void display(void)
   render_particles();
 
   if (_drawWalls) {
-    glBegin(GL_TRIANGLES);
-    glColor4f(0.6f, 0.6f, 0.6f, 0.5f);
-      glVertex3f(width, 0.0f,    depth);
-      glVertex3f(width, height,  depth);
-      glVertex3f(width, height, -depth);
-      glVertex3f(width, height, -depth);
-      glVertex3f(width, 0.0f,   -depth);
-      glVertex3f(width, 0.0f,    depth);
-
-      glVertex3f(-width, 0.0f,    depth);
-      glVertex3f(-width, height,  depth);
-      glVertex3f(-width, height, -depth);
-      glVertex3f(-width, height, -depth);
-      glVertex3f(-width, 0.0f,   -depth);
-      glVertex3f(-width, 0.0f,    depth);
-
-    glColor4f(0.8f, 0.8f, 0.8f, 0.5f);
-      glVertex3f(-width, 0.0f,   depth);
-      glVertex3f( width, 0.0f,   depth);
-      glVertex3f( width, height, depth);
-      glVertex3f( width, height, depth);
-      glVertex3f(-width, height, depth);
-      glVertex3f(-width, 0.0f,   depth);
-
-      glVertex3f(-width, 0.0f,   -depth);
-      glVertex3f( width, 0.0f,   -depth);
-      glVertex3f( width, height, -depth);
-      glVertex3f( width, height, -depth);
-      glVertex3f(-width, height, -depth);
-      glVertex3f(-width, 0.0f,   -depth);
-    glEnd();
+    glCallList(wallsList);
   }
-
-
-
-  //mouse stuff
 
   gui_manager_draw(_guiManager);
 
@@ -521,12 +464,18 @@ static void init_psys(void) {
   //e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
   //vector3f_normalise(&e1->orientation);
   e1->pitch = 80.0f;
-  e1->force = 40.8f;
+  e1->force = 100.8f;
   e1->base_particle = particle_new();
   initialise_particle(e1->base_particle);
-  e1->base_particle->color = (struct vector3f){0.0f, 1.0f, 0.0f};
+  e1->base_particle->color[0] = 0;
+  e1->base_particle->color[1] = 255;
+  e1->base_particle->color[2] = 0;
+  e1->base_particle->color[3] = 255;
+  //e1->base_particle->color = (struct vector3f){0.0f, 1.0f, 0.0f};
   e1->base_particle->collision_chaos = 0.0f;
-  e1->frequency = 100;
+  e1->base_particle->mass = 400.0f;
+  e1->base_particle->bounce = 0.7f;
+  e1->frequency = 500;
   particle_system_add_emitter(_pSystem, e1);
 
   for (int i=0; i<7; ++i) {
@@ -535,17 +484,27 @@ static void init_psys(void) {
     e->yaw += i*40;
     //e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     //vector3f_normalise(&e->orientation);
-    e->force = 45.8f  - 1.5f * myRandom();
+    e->force = 60.0f;
+    //e->force = 45.8f  - 1.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
-    e->base_particle->color = (struct vector3f){1.0f, 0.0f, 0.0f};
+    e->base_particle->color[0] = 255;
+    e->base_particle->color[1] = 0;
+    e->base_particle->color[2] = 0;
+    e->base_particle->mass = 0.1f;
+    e->base_particle->bounce = 0.8f;
+    e->base_particle->collision_chaos = 0.4f;
+    //e->base_particle->color = (struct vector3f){1.0f, 0.0f, 0.0f};
     e->frequency = 1;
-    e->horiz_angle = i * 10.0f;
-    e->vert_angle = i * 10.0f;
+//    e->horiz_angle = i * 10.0f;
+//    e->vert_angle = i * 10.0f;
     particle_system_add_emitter(_pSystem, e);
   }
 
   struct emitter *e2 = emitter_new(NULL);
+  //e2->position[0] = 50.0f;
+  //e2->position[1] = 0.0f;
+  //e2->position[2] = 50.0f;
   e2->position = (struct vector3f) {50.0f, 0.0f, 50.0f};
   //e2->orientation = (struct vector3f) {1.0f, 0.5f, 0.0f};
   e2->pitch = 45.0f;
@@ -555,20 +514,33 @@ static void init_psys(void) {
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
   e2->base_particle->mass = 1.0f;
-  e2->base_particle->color = (struct vector3f){1.0f, 1.0f, 0.0f};
+  e2->base_particle->color[0] = 255;
+  e2->base_particle->color[1] = 255;
+  e2->base_particle->color[2] = 0;
+  //e2->base_particle->color = (struct vector3f){1.0f, 1.0f, 0.0f};
   e2->frequency = 1;
   particle_system_add_emitter(_pSystem, e2);
 
   e2 = emitter_new(NULL);
-  e2->position = (struct vector3f) {-50.0f, 0.0f, 50.0f};
+  //e2->position[0] = -50.0f;
+  //e2->position[1] = 50.0f;
+  //e2->position[2] = 50.0f;
+  e2->position = (struct vector3f) {-50.0f, 500.0f, 50.0f};
   //e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
-  e2->pitch = 45.0f;
-  e2->yaw = 45.0f;
+  e2->pitch = 0.0f;
+  e2->yaw = 0.0f;
+  e2->horiz_angle = 720.0f;
+  e2->vert_angle = 720.0f;
   //vector3f_normalise(&e2->orientation);
-  e2->force = 40.0f;
+  e2->force = 0;//60.01f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
-  e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
+  e2->base_particle->color[0] = 0;
+  e2->base_particle->color[1] = 255;
+  e2->base_particle->color[2] = 255;
+  e2->base_particle->mass = 0.5f;
+  e2->base_particle->bounce = 0.8f;
+  //e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->base_particle->collision_chaos = 0.01f;
   e2->frequency = 1;
   particle_system_add_emitter(_pSystem, e2);
@@ -582,6 +554,8 @@ static void init_gui(void) {
 
   txt_fps    = gui_manager_new_element(_guiManager, "FPS: 1000", NULL);
   txt_mspf   = gui_manager_new_element(_guiManager, "MSPF: 1000", NULL);
+  txt_sfps   = gui_manager_new_element(_guiManager, "SIM FPS: 1000", NULL);
+  txt_smspf  = gui_manager_new_element(_guiManager, "SIM MSPF: 1000", NULL);
   txt_pcount = gui_manager_new_element(_guiManager,"Particles: 0", NULL);
 
   gui_manager_new_element(_guiManager,NULL,NULL);
@@ -613,9 +587,9 @@ static void mouse_move(int x, int y) {
   _mouse_x = x;
   _mouse_y = y;
 
-  int dx = (x - _mouse_x_p) * 0.5f;
-  int dy = (y - _mouse_y_p) * 0.5f;
-  int delta = dx+dy;
+  double dx = (x - _mouse_x_p) * 0.5f;
+  double dy = (y - _mouse_y_p) * 0.5f;
+  double delta = dx+dy;
 
   if (_move_emitter) {
     struct emitter *e = _pSystem->emitters->elements[_ctrl_mode];
@@ -644,7 +618,8 @@ static void reshape(int width, int height)
   _window_width = width;
   _window_height = height;
   gui_manager_set_dimensions(_guiManager, width, height, 200, 10);
-  glClearColor(0.9, 0.9, 0.9, 1.0);
+  //glClearColor(0.9, 0.9, 0.9, 1.0);
+  glClearColor(0.2, 0.2, 0.2, 1.0);
   glViewport(0, 0, (GLsizei)width, (GLsizei)height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -697,6 +672,119 @@ static void makeCrosshair() {
   glEndList();
 }
 
+static void makeWalls() {
+  int height = 800;
+  int width = 400;
+  int depth = 400;
+  GLubyte c_dark[4]  ={50, 50, 50, 0};
+  GLubyte c_light[4] = {160, 160, 160, 50};
+
+  wallsList = glGenLists(1);
+  glNewList(wallsList, GL_COMPILE);
+    glBegin(GL_QUADS);
+    glColor4ubv(c_light);
+      glVertex3f(width, 0.0f, depth);
+      glVertex3f(width, 0.0f, -depth);
+    glColor4ubv(c_dark);
+      glVertex3f(width, height, -depth);
+      glVertex3f(width, height, depth);
+
+    glColor4ubv(c_light);
+      glVertex3f(width, 0.0f, depth);
+      glVertex3f(-width, 0.0f, depth);
+    glColor4ubv(c_dark);
+      glVertex3f(-width, height, depth);
+      glVertex3f(width, height, depth);
+
+    glColor4ubv(c_light);
+      glVertex3f(-width, 0.0f, depth);
+      glVertex3f(-width, 0.0f, -depth);
+    glColor4ubv(c_dark);
+      glVertex3f(-width, height, -depth);
+      glVertex3f(-width, height, depth);
+
+    glColor4ubv(c_light);
+      glVertex3f(width, 0.0f, -depth);
+      glVertex3f(-width, 0.0f, -depth);
+    glColor4ubv(c_dark);
+      glVertex3f(-width, height, -depth);
+      glVertex3f(width, height, -depth);
+    glEnd();
+  glEndList();
+}
+
+static void makeFloor() {
+  int height = 400;
+  int width = 400;
+  int depth = 400;
+  floorList = glGenLists(1);
+  glNewList(floorList, GL_COMPILE);
+    glBegin(GL_TRIANGLES);
+    glColor3ub(150,150,150);
+      glVertex3f( width, 0.0f,  depth);
+      glVertex3f(-width, 0.0f,  depth);
+      glVertex3f(-width, 0.0f, -depth);
+      glVertex3f(-width, 0.0f, -depth);
+      glVertex3f( width, 0.0f,  depth);
+      glVertex3f( width, 0.0f, -depth);
+    glEnd();
+  glEndList();
+}
+
+static void makeGradFloor() {
+  int height = 400;
+  int width = 400;
+  int depth = 400;
+  GLubyte c_dark[4]  ={50, 50, 50, 0};
+  GLubyte c_light[4] = {130, 130, 130, 127};
+
+  gradFloorList = glGenLists(1);
+  glNewList(gradFloorList, GL_COMPILE);
+    glBegin(GL_TRIANGLES);
+    glColor4ubv(c_light);
+    glVertex3f(width, 0.0f, depth);
+    glVertex3f(-width, 0.0f, depth);
+    glColor4ubv(c_dark);
+    glVertex3f(-width, 0.0f, depth + 500.0f);
+
+    glVertex3f(-width, 0.0f, depth + 500.0f);
+    glVertex3f(width, 0.0f, depth + 500.0f);
+    glColor4ubv(c_light);
+    glVertex3f(width, 0.0f, depth);
+
+    glVertex3f(width, 0.0f, depth);
+    glVertex3f(width, 0.0f, -depth);
+    glColor4ubv(c_dark);
+    glVertex3f(width + 500.0f, 0.0f, -depth);
+
+    glVertex3f(width + 500.0f, 0.0f, -depth);
+    glVertex3f(width + 500.0f, 0.0f, depth);
+    glColor4ubv(c_light);
+    glVertex3f(width, 0.0f, depth);
+
+    glVertex3f(-width, 0.0f, -depth);
+    glColor4ubv(c_dark);
+    glVertex3f(-500-width, 0.0f, -depth);
+    glVertex3f(-500-width, 0.0f, depth);
+
+    glVertex3f(-500-width, 0.0f, depth);
+    glColor4ubv(c_light);
+    glVertex3f(-width, 0.0f, -depth);
+    glVertex3f(-width, 0.0f, depth);
+
+    glVertex3f(-width, 0.0f, -depth);
+    glColor4ubv(c_dark);
+    glVertex3f(-width, 0.0f, -500-depth);
+    glVertex3f(width, 0.0f, -500-depth);
+
+    glVertex3f(width, 0.0f, -500-depth);
+    glColor4ubv(c_light);
+    glVertex3f(-width, 0.0f, -depth);
+    glVertex3f(width, 0.0f, -depth);
+    glEnd();
+  glEndList();
+}
+
 //------------------------------------------------------------------------------
 
 static void init_glut(int argc, char *argv[])
@@ -729,11 +817,14 @@ int main(int argc, char *argv[])
   init_gui();
   makeAxes();
   makeCrosshair();
+  makeFloor();
+  makeGradFloor();
+  makeWalls();
 
   init_psys();
   _gui_update_gravtext();
 
-  camera_set_distance(&_camera, 800);
+  camera_set_distance(&_camera, 2000);
   camera_set_pitch(&_camera, 0.0f);
   camera_set_yaw(&_camera, 0.0f);
 
@@ -742,6 +833,7 @@ int main(int argc, char *argv[])
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  glDisable(GL_LIGHTING);
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_ALWAYS);

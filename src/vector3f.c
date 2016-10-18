@@ -36,6 +36,19 @@ void vector3f_normalise(struct vector3f *v) {
   v->z = v->z / norm;
 }
 
+void GLfloat_normalise(GLfloat *v) {
+  float norm = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+  v[0] /= norm;
+  v[1] /= norm;
+  v[2] /= norm;
+}
+
+void GLfloat_copy(GLfloat *s, GLfloat *t) {
+  t[0] = s[0];
+  t[1] = s[1];
+  t[2] = s[2];
+}
+
 void vector3f_copy(struct vector3f *s, struct vector3f *t) {
   t->x = s->x;
   t->y = s->y;

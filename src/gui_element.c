@@ -82,21 +82,21 @@ int gui_element_is_inside(struct gui_element *e, int x, int y) {
 }
 
 void gui_element_draw(struct gui_element *e) {
-
   if (!e->str) return;
-  glColor3f(0.3f, 0.3f, 0.3f);
-  size_t i = 0;
-  int x_offset = 5;
-  while(e->str[i] != '\0' && x_offset < e->width - GUI_ELEMENT_CHAR_WIDTH) {
-    glRasterPos2i(e->x + x_offset, 5 + e->y);
-    glutBitmapCharacter(GLUT_BITMAP_9_BY_15, e->str[i]);
-    ++i;
-    x_offset += GUI_ELEMENT_CHAR_WIDTH;
-  }
+
   if (e->callback == NULL) glColor4f(0.7f, 0.7f, 0.7f, 0.7f);
   else glColor4f(0.4f, 0.55f, 0.9f, 0.9f);
 
   glCallList(e->compiled_list);
+  size_t i = 0;
+  int x_offset = 5;
+  glColor4ub(0, 0, 0, 255);
+  glRasterPos2i(e->x + x_offset, 5 + e->y);
+  while(e->str[i] != '\0' && x_offset < e->width - GUI_ELEMENT_CHAR_WIDTH) {
+    glutBitmapCharacter(GLUT_BITMAP_9_BY_15, e->str[i]);
+    ++i;
+    x_offset += GUI_ELEMENT_CHAR_WIDTH;
+  }
 }
 
 static void _compile(struct gui_element *e) {
