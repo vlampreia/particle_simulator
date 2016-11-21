@@ -49,6 +49,12 @@ void GLfloat_copy(GLfloat *s, GLfloat *t) {
   t[2] = s[2];
 }
 
+void GLdouble_copy(GLdouble *s, GLdouble *t) {
+  t[0] = s[0];
+  t[1] = s[1];
+  t[2] = s[2];
+}
+
 void vector3f_copy(struct vector3f *s, struct vector3f *t) {
   t->x = s->x;
   t->y = s->y;

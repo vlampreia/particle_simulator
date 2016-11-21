@@ -18,19 +18,19 @@ struct emitter {
 
   double force;
 
-  int frequency;
+  double frequency;
 
   struct vector *particle_pool;
 
-  int last_fire_t;
+  double last_fire_t;
   int firing;
 };
 
 struct emitter *emitter_new (struct vector *particle_pool);
 void emitter_delete         (struct emitter **e);
 
-void emitter_fire           (struct emitter *e);
-void emitter_step           (struct emitter *e, int t);
+void emitter_fire           (struct emitter *e, int count);
+void emitter_step           (struct emitter *e, double t);
 
 void emitter_set_particle_pool  (struct emitter *e, struct vector *particle_pool);
 

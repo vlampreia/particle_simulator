@@ -23,6 +23,8 @@ struct particle {
   int active;
 
   GLubyte color[4];
+
+  size_t pos_idx;
   //struct vector3f color;
   //double color_alpha;
 };

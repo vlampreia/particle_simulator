@@ -7,8 +7,8 @@ BUILDDIR=build
 
 INC=-I ./$(HEADERS) -I/usr/X11R6/include -I/usr/local/include
 
-CC=clang
-CFLAGS=-std=gnu11 -pedantic-errors $(INC) -Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -g
+CC=gcc
+CFLAGS=-std=gnu11 -pedantic-errors $(INC) -Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -g -pg
 LDFLAGS=-L/usr/X11R6/lib -lGL -lGLU -lglut -lm
 
 

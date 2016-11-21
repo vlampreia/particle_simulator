@@ -16,6 +16,7 @@ void             vector3f_init    (struct vector3f *v);
 void             vector3f_normalise (struct vector3f *v);
 void             GLfloat_normalise (GLfloat *v);
 void             GLfloat_copy      (GLfloat *s, GLfloat *t);
+void GLdouble_copy(GLdouble *s, GLdouble *t);
 
 void             vector3f_copy    (struct vector3f *s, struct vector3f *t);
 

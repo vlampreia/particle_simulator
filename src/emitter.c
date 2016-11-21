@@ -45,20 +45,21 @@ void emitter_delete(struct emitter **e) {
   free(*e);
 }
 
-void emitter_fire(struct emitter *e) {
-  for (size_t i=0; i<e->particle_pool->size; ++i) {
+void emitter_fire(struct emitter *e, int count) {
+  for (size_t i=0; i<e->particle_pool->size && count > 0; ++i) {
     struct particle *p = (struct particle*) e->particle_pool->elements[i];
     if (!p->active) {
       _init_particle(e, p);
       p->active = 1;
-      break;
+      count--;
     }
   }
 }
 
-void emitter_step(struct emitter *e, int t) {
+void emitter_step(struct emitter *e, double t) {
   if (t - e->last_fire_t > e->frequency) {
-    emitter_fire(e);
+    emitter_fire(e, 1);
+    //emitter_fire(e, 55);
     e->last_fire_t = t;
   }
 }

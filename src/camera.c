@@ -35,6 +35,7 @@ void camera_set_distance(struct camera *c, int distance) {
 
 void camera_inc_distance(struct camera *c, int amount) {
   c->distance += amount;
+  if (c->distance < 0) c->distance = 100;
   _compute_pos(c);
 }
 

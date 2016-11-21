@@ -30,13 +30,15 @@ static double myRandom(void)
 
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
-//#define NUM_PARTICLES 1000000
-  #define NUM_PARTICLES 10000
+#define NUM_PARTICLES 1000000
+  //#define NUM_PARTICLES 10000
 #define NUM_EMITTERS 2
+#define NSEC_DIV 1000000 / 1000
+
 static int _window_width = 800;
 static int _window_height = 600;
 
-static struct vector3f _mouseWorldPos = (struct vector3f) {0.0f, 0.0f, 0.0f};
+static struct vector3f _mouseWorldPos =  {0.0, 0.0, 0.0};
 
 static int _ctrl_mode = 1;
 static int _ctrl_edit = 0;
@@ -58,11 +60,11 @@ GLint    _viewport[4];
 
 
 struct {
-  int lastRenderTime;
-  int lastRenderDuration;
+  double lastRenderTime;
+  double lastRenderDuration;
 
-  int lastSimTime;
-  int lastSimDuration;
+  double lastSimTime;
+  double lastSimDuration;
 } _statistics = {0, 0, 0, 0};
 
 // Display list for coordinate axis 
@@ -104,6 +106,8 @@ static struct gui_element *btn_type     = NULL;
 static struct gui_element *txt_bounce   = NULL;
 static struct gui_element *btn_incBounce = NULL;
 static struct gui_element *btn_decBounce = NULL;
+static struct gui_element *txt_airDens  = NULL;
+static struct gui_element *txt_friction = NULL;
 
 static struct gui_element *txt_rate = NULL;
 static struct gui_element *btn_incRate = NULL;
@@ -153,7 +157,8 @@ static void initialise_particle(struct particle *p) {
   p->pos[1] = 0.0f;
   p->pos[2] = 0.0f;
   //vector3f_init(&p->pos);
-  p->tod_usec = 24000;
+  //p->tod_usec = 24000;
+  p->tod_usec = 1000;
 
   p->color[0] = 50;
   p->color[1] = 50;
@@ -165,43 +170,82 @@ static void initialise_particle(struct particle *p) {
 }
 
 //------------------------------------------------------------------------------
+struct timespec global_time_p;
 
-static void step_simulation(void) {
-  int t = glutGet(GLUT_ELAPSED_TIME);
-  _statistics.lastRenderDuration = t - _statistics.lastRenderTime;
-  _statistics.lastRenderTime = t;
-  _statistics.lastSimDuration = t - _statistics.lastSimTime;
-  _statistics.lastSimTime = t;
+double t = 0.0;
+double accumulator = 0.0;
+static void _step_simulation(void) {
+//  struct timespec t;
+//  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t);
+//  float dt = (t.tv_nsec - global_time_p.tv_nsec)/1000000;
+//  global_time_p = t;
+//
 
-  //msq += dt;
+  struct timespec _t;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &_t);
+  double newTime = _t.tv_sec + (_t.tv_nsec/1000000000.0f);
+  double dt = newTime - _statistics.lastSimTime;
+  if (dt > 0.15) dt = 0.15;
+  _statistics.lastSimDuration = dt;
+  _statistics.lastSimTime = newTime;
 
-  //while (msq >= 10) {
-    particle_system_step(_pSystem, t, _statistics.lastSimDuration);
-   // msq = 0;
-    //msq -= 10;
-  //}
+  accumulator += dt;
+
+  //TODO: FIX TIMESTEP -- is idlefunc doing some dt shit??
+  while (accumulator >= dt) {
+    particle_system_step(_pSystem, t, 1.0);
+    accumulator -= dt;
+    t += dt;
+  }
+  
+
+//  clock_t t = clock() / (CLOCKS_PER_SEC / 1000);
+//  float dt = t - gt;
+//  gt = t;
+
+//  int t = glutGet(GLUT_ELAPSED_TIME);
+//  _statistics.lastSimDuration = t - _statistics.lastSimTime;
+//  _statistics.lastSimTime = t;
+
+//  float dt = 1000/_statistics.lastSimDuration / 60.0f;
+  //msq += _statistics.lastSimDuration;
+
+//  while (msq >= 10) {
+    //particle_system_step(_pSystem, t, dt);
+//    msq = 0;
+//    msq -= 10;
+//  }
 
   glutPostRedisplay();
 }
 
 //------------------------------------------------------------------------------
 
+static int count = NUM_PARTICLES/4;
 static inline void render_particles(void) {
   int active = 0;
 
   glPointSize(5.0f);
-  glBegin(GL_POINTS);
-    for (size_t i=0; i<_pSystem->particles->size; ++i) {
-      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
-      if (!p->active) continue;
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
+  glColorPointer(3, GL_FLOAT, 0, _pSystem->particle_col);
+  //glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
+  glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
 
-      glColor4ubv(p->color);
-      //glColor4f(p->color.x, p->color.y, p->color.z, p->color_alpha);
-      glVertex3fv(p->pos);
-      //glVertex3f(p->pos.x, p->pos.y, p->pos.z);
-      active++;
-    }
-  glEnd();
+//  glPointSize(5.0f);
+//  glBegin(GL_POINTS);
+//    for (size_t i=0; i<_pSystem->particles->size; ++i) {
+//      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
+//      if (!p->active) continue;
+//
+//      glColor4ubv(p->color);
+//      glVertex3fv(p->pos);
+//      active++;
+//    }
+//  glEnd();
 
   snprintf(_gui_buffer, 256, "Particles: %d", active);
   gui_element_set_str(txt_pcount, _gui_buffer, 1);
@@ -209,34 +253,41 @@ static inline void render_particles(void) {
 
 //------------------------------------------------------------------------------
 
-static void display(void)
+static void _render(void)
 {
   int t = glutGet(GLUT_ELAPSED_TIME);
   _statistics.lastRenderDuration = t - _statistics.lastRenderTime;
   _statistics.lastRenderTime = t;
 
-  snprintf(_gui_buffer, 256, "MSPF: %d", _statistics.lastRenderDuration);
+  snprintf(_gui_buffer, 256, "MSPF: %f", _statistics.lastRenderDuration);
   gui_element_set_str(txt_mspf, _gui_buffer, 0);
 
-  snprintf(_gui_buffer, 256, "FPS: %d", 1000/(_statistics.lastRenderDuration+1));
+  snprintf(_gui_buffer, 256, "FPS: %f", 1000/(_statistics.lastRenderDuration+1));
   gui_element_set_str(txt_fps, _gui_buffer, 0);
 
-  snprintf(_gui_buffer, 256, "SIM MSPF: %d", _statistics.lastSimDuration);
+  snprintf(_gui_buffer, 256, "SIM MSPF: %f", 1000*_statistics.lastSimDuration);
   gui_element_set_str(txt_smspf, _gui_buffer, 0);
 
-  snprintf(_gui_buffer, 256, "SIM FPS: %d", 1000/(_statistics.lastSimDuration+1));
+  snprintf(_gui_buffer, 256, "SIM FPS: %f", 1/(_statistics.lastSimDuration));
   gui_element_set_str(txt_sfps, _gui_buffer, 0);
+
+  snprintf(_gui_buffer, 256, "air: %f", _pSystem->air_density);
+  gui_element_set_str(txt_airDens, _gui_buffer, 0);
+
+  snprintf(_gui_buffer, 256, "friction: %f", _pSystem->friction);
+  gui_element_set_str(txt_friction, _gui_buffer, 0);
 
   glLoadIdentity();
   gluLookAt(_camera.pos.x, _camera.pos.y, _camera.pos.z,
-            0.0, 500.0, 0.0,
+            0.0, _camera.distance/8, 0.0,
             0.0, 1.0, 0.0);
+
   // Clear the screen
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  int height = 400;
-  int width = 400;
-  int depth = 400;
+  static int height = 400;
+  static int width = 400;
+  static int depth = 400;
 
   glCallList(floorList);
 
@@ -387,7 +438,7 @@ static void keyboard(unsigned char key, int x, int y)
       ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing = !((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing;
       break;
 
-    case 32: emitter_fire(_pSystem->emitters->elements[_ctrl_mode]); break;
+    case 32: emitter_fire(_pSystem->emitters->elements[_ctrl_mode], 1); break;
 
     case 97: axisEnabled = !axisEnabled; break;
 
@@ -403,6 +454,11 @@ static void keyboard(unsigned char key, int x, int y)
     case 48: _set_ctrl_mode(0); break;
     case 119: _drawWalls = !_drawWalls; break;
 
+    case 65: _pSystem->friction += 0.01f; break;
+    case 83: _pSystem->friction -= 0.01f; break;
+    case 68: _pSystem->air_density += 0.01f; break;
+    case 70: _pSystem->air_density -= 0.01f; break;
+
     case 101: _toggleEdit(); break;
 
     default: break;
@@ -415,18 +471,22 @@ static void keyboard(unsigned char key, int x, int y)
 //------------------------------------------------------------------------------
 
 static void myCb(void) {
-  emitter_fire(_pSystem->emitters->elements[_ctrl_mode]);
+  emitter_fire(_pSystem->emitters->elements[_ctrl_mode], 1);
 }
 
 //------------------------------------------------------------------------------
 
 static void mouse(int button, int state, int x, int y) {
+  int scroll_amt = 100;
   switch(glutGetModifiers()) {
     case GLUT_ACTIVE_SHIFT:
-      _ctrl_edit_mode = 1; break;
+      _ctrl_edit_mode = 1;
+      scroll_amt = 10000;
+      break;
     case GLUT_ACTIVE_CTRL:
       _ctrl_edit_mode = 2; break;
     default:
+      scroll_amt = 100;
       _ctrl_edit_mode = 0;
   }
   switch (button) {
@@ -448,8 +508,8 @@ static void mouse(int button, int state, int x, int y) {
       }
       break;
 
-    case 3: camera_inc_distance(&_camera, -10); break;
-    case 4: camera_inc_distance(&_camera,  10); break;
+    case 3: camera_inc_distance(&_camera, -scroll_amt); break;
+    case 4: camera_inc_distance(&_camera,  scroll_amt); break;
 
     default: break;
   }
@@ -464,7 +524,8 @@ static void init_psys(void) {
   //e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
   //vector3f_normalise(&e1->orientation);
   e1->pitch = 80.0f;
-  e1->force = 100.8f;
+  e1->force = 200.8f;
+  e1->yaw = 80.0f;
   e1->base_particle = particle_new();
   initialise_particle(e1->base_particle);
   e1->base_particle->color[0] = 0;
@@ -472,10 +533,10 @@ static void init_psys(void) {
   e1->base_particle->color[2] = 0;
   e1->base_particle->color[3] = 255;
   //e1->base_particle->color = (struct vector3f){0.0f, 1.0f, 0.0f};
-  e1->base_particle->collision_chaos = 0.0f;
-  e1->base_particle->mass = 400.0f;
-  e1->base_particle->bounce = 0.7f;
-  e1->frequency = 500;
+  e1->base_particle->collision_chaos = 1.4f;
+  e1->base_particle->mass = 1.0f;
+  e1->base_particle->bounce = 0.99f;
+  e1->frequency = 0.5;
   particle_system_add_emitter(_pSystem, e1);
 
   for (int i=0; i<7; ++i) {
@@ -484,20 +545,20 @@ static void init_psys(void) {
     e->yaw += i*40;
     //e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     //vector3f_normalise(&e->orientation);
-    e->force = 60.0f;
+    e->force = 80.0f + i * 10.0f;
     //e->force = 45.8f  - 1.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
     e->base_particle->color[0] = 255;
-    e->base_particle->color[1] = 0;
-    e->base_particle->color[2] = 0;
-    e->base_particle->mass = 0.1f;
-    e->base_particle->bounce = 0.8f;
+    e->base_particle->color[1] = 40 * i;
+    e->base_particle->color[2] = 20 * i;
+    e->base_particle->mass = 0.5f;
+    e->base_particle->bounce = 0.998f;
     e->base_particle->collision_chaos = 0.4f;
     //e->base_particle->color = (struct vector3f){1.0f, 0.0f, 0.0f};
-    e->frequency = 1;
-//    e->horiz_angle = i * 10.0f;
-//    e->vert_angle = i * 10.0f;
+    e->frequency = 0;
+    e->horiz_angle = i * 10.0f;
+    e->vert_angle = i * 10.0f;
     particle_system_add_emitter(_pSystem, e);
   }
 
@@ -518,7 +579,7 @@ static void init_psys(void) {
   e2->base_particle->color[1] = 255;
   e2->base_particle->color[2] = 0;
   //e2->base_particle->color = (struct vector3f){1.0f, 1.0f, 0.0f};
-  e2->frequency = 1;
+  e2->frequency = 0;
   particle_system_add_emitter(_pSystem, e2);
 
   e2 = emitter_new(NULL);
@@ -532,17 +593,17 @@ static void init_psys(void) {
   e2->horiz_angle = 720.0f;
   e2->vert_angle = 720.0f;
   //vector3f_normalise(&e2->orientation);
-  e2->force = 0;//60.01f;
+  e2->force = 100;//60.01f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
   e2->base_particle->color[0] = 0;
   e2->base_particle->color[1] = 255;
   e2->base_particle->color[2] = 255;
-  e2->base_particle->mass = 0.5f;
-  e2->base_particle->bounce = 0.8f;
+  e2->base_particle->mass = 0.15f;
+  e2->base_particle->bounce = 0.9f;
   //e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->base_particle->collision_chaos = 0.01f;
-  e2->frequency = 1;
+  e2->frequency = 0;
   particle_system_add_emitter(_pSystem, e2);
 }
 
@@ -562,6 +623,8 @@ static void init_gui(void) {
   txt_grav = gui_manager_new_element(_guiManager, "Gravity 0.0000", NULL);
   btn_decG = gui_manager_new_element(_guiManager, "-", _cb_decGrav);
   btn_incG = gui_manager_new_element(_guiManager, "+", _cb_incGrav);
+  txt_airDens = gui_manager_new_element(_guiManager, "air: 0.0000", NULL);
+  txt_friction = gui_manager_new_element(_guiManager, "friction: 0.0000", NULL);
 
   gui_manager_new_element(_guiManager,NULL,NULL);
   gui_manager_new_element(_guiManager,NULL,NULL);
@@ -623,7 +686,7 @@ static void reshape(int width, int height)
   glViewport(0, 0, (GLsizei)width, (GLsizei)height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(60, (GLfloat)width / (GLfloat)height, 10.0, 10000.0);
+  gluPerspective(60, (GLfloat)width / (GLfloat)height, 10.0, 1000000.0);
   glMatrixMode(GL_MODELVIEW);
 }
 
@@ -787,6 +850,10 @@ static void makeGradFloor() {
 
 //------------------------------------------------------------------------------
 
+static void _handle_input(void) {
+
+}
+
 static void init_glut(int argc, char *argv[])
 {
   glutInit(&argc, argv);
@@ -794,8 +861,8 @@ static void init_glut(int argc, char *argv[])
   glutInitWindowPosition(100, 100);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_ALPHA | GLUT_DEPTH | GLUT_MULTISAMPLE);
   glutCreateWindow("COMP37111 Particles");
-  glutIdleFunc(step_simulation);
-  glutDisplayFunc(display);
+  glutIdleFunc(_step_simulation);
+  glutDisplayFunc(_render);
   glutKeyboardFunc(keyboard);
   glutMouseFunc(mouse);
   glutMotionFunc(mouse_move);
@@ -806,6 +873,16 @@ static void init_glut(int argc, char *argv[])
 //  glEnable(GL_LIGHT0);
 //  glEnable(GL_COLOR_MATERIAL);
 }
+
+
+//static void _mainLoop(void) {
+//  glutMainLoopEvent();
+//  while(1) {
+//    _handle_input();
+//    _step_simulation();
+//    _render();
+//  }
+//}
 
 //------------------------------------------------------------------------------
 
@@ -837,10 +914,14 @@ int main(int argc, char *argv[])
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_ALWAYS);
+
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
 //  glDepthRange(0.0f, 1.0f);
   //glEnable(GL_CULL_FACE);
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);
   glutMainLoop();
+  //_mainLoop();
 
   return 0;
 }
