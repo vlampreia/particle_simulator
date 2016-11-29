@@ -21,6 +21,9 @@ struct particle_system {
   double gravity;
   double air_density;
   double friction;
+
+  int collideFloor;
+  int collideWalls;
 };
 
 

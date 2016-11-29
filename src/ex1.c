@@ -17,6 +17,14 @@
 
 //------------------------------------------------------------------------------
 
+static double _avg(double a[], size_t n) {
+  double s = 0;
+  for (int i=0; i<n; ++i) {
+    s += a[i];
+  }
+  return s/n;
+}
+
 
 static struct gui_manager *_guiManager = NULL;
 static struct particle_system *_pSystem = NULL;
@@ -51,6 +59,7 @@ static int _mouse_y_p = 0;
 static int _dragging = 0;
 static int _move_emitter = 0;
 static int _drawWalls = 1;
+static int _drawFloor = 1;
 
 static char _gui_buffer[256];
 
@@ -62,10 +71,16 @@ GLint    _viewport[4];
 struct {
   double lastRenderTime;
   double lastRenderDuration;
+  double lastRenderDurations[10];
+  size_t rdi;
 
   double lastSimTime;
   double lastSimDuration;
-} _statistics = {0, 0, 0, 0};
+  double lastSimDurations[10];
+  size_t sdi;
+
+  size_t maxidx;
+} _statistics = {0,0,{0,0,0,0,0,0,0,0,0,0},0, 0,0,{0,0,0,0,0,0,0,0,0,0},0,10};
 
 // Display list for coordinate axis 
 GLuint axisList;
@@ -117,6 +132,8 @@ static struct gui_element *txt_mass = NULL;
 static struct gui_element *btn_decMass = NULL;
 static struct gui_element *btn_incMass = NULL;
 
+static struct gui_element *txt_force = NULL;
+
 //------------------------------------------------------------------------------
 static void _gui_update_gravtext() {
   snprintf(_gui_buffer, 256, "Gravity %f", _pSystem->gravity);
@@ -136,9 +153,23 @@ static void _cb_incGrav() {
 static void _set_ctrl_mode(int mode) {
   _ctrl_mode = mode;
 
-  char *str = malloc(11);
+  char *str = malloc(15);
   snprintf(str, 11, "Emitter: %d", _ctrl_mode);
   gui_element_set_str(txt_ctrlMode, str, 0);
+
+  struct emitter *e = _pSystem->emitters->elements[mode];
+  snprintf(str, 11, "Rate: %f", e->frequency);
+  gui_element_set_str(txt_rate, str, 0);
+
+  snprintf(str, 15, "Bounce: %f", e->base_particle->bounce);
+  gui_element_set_str(txt_bounce, str, 0);
+
+  snprintf(str, 11, "Mass: %f", e->base_particle->mass);
+  gui_element_set_str(txt_mass, str, 0);
+
+  snprintf(str, 11, "Force: %f", e->force);
+  gui_element_set_str(txt_force, str, 0);
+
   free(str);
 }
 
@@ -186,7 +217,11 @@ static void _step_simulation(void) {
   double newTime = _t.tv_sec + (_t.tv_nsec/1000000000.0f);
   double dt = newTime - _statistics.lastSimTime;
   if (dt > 0.15) dt = 0.15;
-  _statistics.lastSimDuration = dt;
+  if (_statistics.sdi == _statistics.maxidx-1) _statistics.sdi = 0;
+  else ++_statistics.sdi;
+
+  _statistics.lastSimDurations[_statistics.sdi] = dt;
+  _statistics.lastSimDuration = _avg(_statistics.lastSimDurations, _statistics.maxidx);
   _statistics.lastSimTime = newTime;
 
   accumulator += dt;
@@ -221,31 +256,31 @@ static void _step_simulation(void) {
 
 //------------------------------------------------------------------------------
 
-static int count = NUM_PARTICLES/4;
+static int count = NUM_PARTICLES/10;
 static inline void render_particles(void) {
   int active = 0;
 
   glPointSize(5.0f);
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glEnableClientState(GL_COLOR_ARRAY);
-  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
-  glColorPointer(3, GL_FLOAT, 0, _pSystem->particle_col);
-  //glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
-  glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
-  glDisableClientState(GL_COLOR_ARRAY);
-  glDisableClientState(GL_VERTEX_ARRAY);
+  //glEnableClientState(GL_VERTEX_ARRAY);
+//  glEnableClientState(GL_COLOR_ARRAY);
+//  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
+//  glColorPointer(3, GL_FLOAT, 0, _pSystem->particle_col);
+//  //glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
+//  glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
+//  glDisableClientState(GL_COLOR_ARRAY);
+//  glDisableClientState(GL_VERTEX_ARRAY);
 
-//  glPointSize(5.0f);
-//  glBegin(GL_POINTS);
-//    for (size_t i=0; i<_pSystem->particles->size; ++i) {
-//      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
-//      if (!p->active) continue;
-//
-//      glColor4ubv(p->color);
-//      glVertex3fv(p->pos);
-//      active++;
-//    }
-//  glEnd();
+  glPointSize(5.0f);
+  glBegin(GL_POINTS);
+    for (size_t i=0; i<_pSystem->particles->size; ++i) {
+      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
+      if (!p->active) continue;
+
+      glColor4ubv(p->color);
+      glVertex3fv(p->pos);
+      active++;
+    }
+  glEnd();
 
   snprintf(_gui_buffer, 256, "Particles: %d", active);
   gui_element_set_str(txt_pcount, _gui_buffer, 1);
@@ -256,7 +291,11 @@ static inline void render_particles(void) {
 static void _render(void)
 {
   int t = glutGet(GLUT_ELAPSED_TIME);
-  _statistics.lastRenderDuration = t - _statistics.lastRenderTime;
+  double dt = t - _statistics.lastRenderTime;
+  if (_statistics.rdi == _statistics.maxidx-1) _statistics.rdi = 0;
+  else ++_statistics.rdi;
+  _statistics.lastRenderDurations[_statistics.rdi] = dt;
+  _statistics.lastRenderDuration = _avg(_statistics.lastRenderDurations, _statistics.maxidx);
   _statistics.lastRenderTime = t;
 
   snprintf(_gui_buffer, 256, "MSPF: %f", _statistics.lastRenderDuration);
@@ -289,24 +328,27 @@ static void _render(void)
   static int width = 400;
   static int depth = 400;
 
-  glCallList(floorList);
-
   double x,y,z;
   GLfloat _z;
-  if (_ctrl_edit) {
-    glGetDoublev(GL_MODELVIEW_MATRIX, _modelview);
-    glGetDoublev(GL_PROJECTION_MATRIX, _projection);
-    glGetIntegerv(GL_VIEWPORT, _viewport);
 
-    glReadPixels(_mouse_x, _viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT, GL_FLOAT, &_z);
-    gluUnProject(
-      _mouse_x, _viewport[3] - _mouse_y, _z,
-      _modelview, _projection, _viewport,
-      &x, &y, &z
-    );
+  if (_drawFloor) {
+    glCallList(floorList);
+
+    if (_ctrl_edit) {
+      glGetDoublev(GL_MODELVIEW_MATRIX, _modelview);
+      glGetDoublev(GL_PROJECTION_MATRIX, _projection);
+      glGetIntegerv(GL_VIEWPORT, _viewport);
+
+      glReadPixels(_mouse_x, _viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT, GL_FLOAT, &_z);
+      gluUnProject(
+        _mouse_x, _viewport[3] - _mouse_y, _z,
+        _modelview, _projection, _viewport,
+        &x, &y, &z
+      );
+    }
   }
 
-  glCallList(gradFloorList);
+  if (_drawFloor) glCallList(gradFloorList);
 
   if (_ctrl_edit) {
     _mouseWorldPos.x = x;
@@ -453,11 +495,15 @@ static void keyboard(unsigned char key, int x, int y)
     case 57: _set_ctrl_mode(9); break;
     case 48: _set_ctrl_mode(0); break;
     case 119: _drawWalls = !_drawWalls; break;
+    case 87: _drawFloor = !_drawFloor; break;
 
     case 65: _pSystem->friction += 0.01f; break;
     case 83: _pSystem->friction -= 0.01f; break;
     case 68: _pSystem->air_density += 0.01f; break;
     case 70: _pSystem->air_density -= 0.01f; break;
+
+    case 99: _pSystem->collideWalls = !_pSystem->collideWalls; break;
+    case 67: _pSystem->collideFloor = !_pSystem->collideFloor; break;
 
     case 101: _toggleEdit(); break;
 
@@ -524,7 +570,7 @@ static void init_psys(void) {
   //e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
   //vector3f_normalise(&e1->orientation);
   e1->pitch = 80.0f;
-  e1->force = 200.8f;
+  e1->force = 600.8f;
   e1->yaw = 80.0f;
   e1->base_particle = particle_new();
   initialise_particle(e1->base_particle);
@@ -553,7 +599,7 @@ static void init_psys(void) {
     e->base_particle->color[1] = 40 * i;
     e->base_particle->color[2] = 20 * i;
     e->base_particle->mass = 0.5f;
-    e->base_particle->bounce = 0.998f;
+    e->base_particle->bounce = 0.9999f;
     e->base_particle->collision_chaos = 0.4f;
     //e->base_particle->color = (struct vector3f){1.0f, 0.0f, 0.0f};
     e->frequency = 0;
@@ -604,6 +650,7 @@ static void init_psys(void) {
   //e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->base_particle->collision_chaos = 0.01f;
   e2->frequency = 0;
+  e2->emission_count = 52;
   particle_system_add_emitter(_pSystem, e2);
 }
 
@@ -642,6 +689,7 @@ static void init_gui(void) {
   txt_mass      = gui_manager_new_element(_guiManager, "Mass: 1.00", NULL);
   btn_decMass   = gui_manager_new_element(_guiManager, "-", NULL);
   btn_incMass   = gui_manager_new_element(_guiManager, "+", NULL);
+  txt_force     = gui_manager_new_element(_guiManager, "Force: 000.0", NULL);
 }
 
 //------------------------------------------------------------------------------
@@ -915,8 +963,6 @@ int main(int argc, char *argv[])
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_ALWAYS);
 
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glEnableClientState(GL_COLOR_ARRAY);
 //  glDepthRange(0.0f, 1.0f);
   //glEnable(GL_CULL_FACE);
   //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);

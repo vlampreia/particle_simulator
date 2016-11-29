@@ -24,6 +24,8 @@ struct emitter {
 
   double last_fire_t;
   int firing;
+
+  int emission_count;
 };
 
 struct emitter *emitter_new (struct vector *particle_pool);

@@ -50,12 +50,12 @@ struct particle_system *particle_system_new(size_t numParticles) {
     s->particle_idx[i] = i;
   }
 
-//  glVertexPointer(3, GL_FLOAT, sizeof(struct vertex), s->particle_pos);
-//  glColorPointer(3, GL_FLOAT, sizeof(struct vertex), s->particle_col);
-
   s->gravity = 9.807f;
   s->friction = 0.98f;
-  s->air_density = 1.2f;
+  s->air_density = 1.1f;
+
+  s->collideFloor = 1;
+  s->collideWalls = 1;
 
   return s;
 }
@@ -115,17 +115,36 @@ static inline double _max_double(double a, double b) {
   return a > b ? a : b;
 }
 
-static inline void _update_particle_pos(struct particle_system *s, struct particle *p, double t, double dt) {
+static inline void _update_particle_pos(
+  struct particle_system *s,
+  struct particle *p,
+  double t,
+  double dt
+) {
   double force = -s->gravity * p->mass;// * 1/dt;
   //double friction = 0.990f;
 
   double airforce = s->air_density;
 
+  struct vector3f wind_force = (struct vector3f) {
+    0.003 * _clampedRand(0.5,1.0) / p->mass,
+    0.0,
+    0.001 * _clampedRand(0.5,1.0) / p->mass
+  };
+
+  if (p->pos[1] <= 0.5) {
+    wind_force.x /= 1.2;
+    wind_force.y /= 1.2;
+  } else {
+    wind_force.x = p->pos[1] * wind_force.x;
+    wind_force.z = p->pos[1] * wind_force.z;
+  }
+
   //force is static down 1 for now
-  p->acceleration[0] = 0.0f;
+  p->acceleration[0] = wind_force.x;
   p->acceleration[1] = force;/// / p->mass;
   //p->acceleration[1] -= airforce * p->velocity[1];
-  p->acceleration[2] = 0.0f;
+  p->acceleration[2] = wind_force.z;
 
 //  p->acceleration[0] += -p->velocity[0] /p->mass ;
 //  p->acceleration[2] += -p->velocity[2] /p->mass ;
@@ -199,52 +218,56 @@ static inline void _update_particle_collision(struct particle_system *s, struct 
 //    }
 //  }
 
-  if (p->pos[1] <= 0.05f) {
-    p->velocity[0] *= s->friction;
-    p->velocity[2] *= s->friction;
+  if (s->collideFloor) {
+    if (p->pos[1] <= 0.05f) {
+      p->velocity[0] *= s->friction*p->bounce;
+      p->velocity[2] *= s->friction*p->bounce;
 
-    if (p->pos[1] < 0.0f) {
-      p->pos[1] = 0.0f;
-      p->velocity[1] = (-p->velocity[1] * p->bounce) * _clampedRand(1.0f-p->collision_chaos, 1.0f) * dt;
-      
-//      p->velocity[0] += 1/ (p->bounce * p->velocity[1]);
-//      p->velocity[2] += 1/ (p->bounce * p->velocity[1]);
-//      p->velocity[0] *= NSIGN(p->velocity[0]) * 0.5*(p->velocity[1] * p->bounce);
-//      p->velocity[2] *= NSIGN(p->velocity[2]) * 0.5*(p->velocity[1] * p->bounce);
-      //TODO: this is not real physics, makes surfaces look bumpy though
-      //p->velocity[0] += 0.001 * myRandom();
-      //p->velocity[2] += 0.001 * myRandom();
-//      p->velocity[2] += 0.1 * p->bounce * _clampedRand(-p->collision_chaos, p->collision_chaos);
-//      p->velocity[0] += 0.1 * p->bounce * _clampedRand(-p->collision_chaos, p->collision_chaos);
+      if (p->pos[1] < 0.0f) {
+        p->pos[1] = 0.0f;
+        p->velocity[1] = (-p->velocity[1] * p->bounce);// * _clampedRand(1.0f-p->collision_chaos, 1.0f) * dt;
+        
+  //      p->velocity[0] += 1/ (p->bounce * p->velocity[1]);
+  //      p->velocity[2] += 1/ (p->bounce * p->velocity[1]);
+  //      p->velocity[0] *= NSIGN(p->velocity[0]) * 0.5*(p->velocity[1] * p->bounce);
+  //      p->velocity[2] *= NSIGN(p->velocity[2]) * 0.5*(p->velocity[1] * p->bounce);
+        //TODO: this is not real physics, makes surfaces look bumpy though
+        //p->velocity[0] += 0.001 * myRandom();
+        //p->velocity[2] += 0.001 * myRandom();
+  //      p->velocity[2] += 0.1 * p->bounce * _clampedRand(-p->collision_chaos, p->collision_chaos);
+  //      p->velocity[0] += 0.1 * p->bounce * _clampedRand(-p->collision_chaos, p->collision_chaos);
+      }
     }
   }
 
+  if (s->collideWalls) {
   //TODO: expensive....
-//  if (p->pos[0] >= 400.0f) {
-//    p->pos[0] = 400.0f;
-//    //p->velocity[0] = -p->velocity[0] * p->bounce * dt;
-//    p->velocity[0] = s->friction * -p->velocity[0] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-//    p->velocity[2] += p->collision_chaos * myRandom() * dt;
-//  }
-//
-//  if (p->pos[0] <= -400.0f) {
-//    p->pos[0] = -400.0f;
-//    //p->velocity[0] = -p->velocity[0] * p->bounce * dt;
-//    p->velocity[0] = s->friction * -p->velocity[0] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-//    p->velocity[2] += p->collision_chaos * myRandom() * dt;
-//  }
-//
-//  if (p->pos[2] >= 400.0f) {
-//    p->pos[2] = 400.0f;
-//    //p->velocity[2] = -p->velocity[2] * p->bounce * dt;
-//    p->velocity[2] = s->friction * -p->velocity[2] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-//    p->velocity[0] += p->collision_chaos * myRandom() * dt;
-//  }
+    if (p->pos[0] >= 400.0f) {
+      p->pos[0] = 400.0f;
+      //p->velocity[0] = -p->velocity[0] * p->bounce * dt;
+      p->velocity[0] = s->friction * -p->velocity[0] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+      p->velocity[2] += p->collision_chaos * myRandom() * dt;
+    }
 
-//  if (p->pos[2] <= -400.0f) {
-//    p->pos[2] = -400.0f;
-//    p->velocity[2] = -p->velocity[2] * p->bounce;
-//    //p->velocity[2] = friction * -p->velocity[2] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-//    p->velocity[0] += p->collision_chaos * myRandom();
-//  }
+    if (p->pos[0] <= -400.0f) {
+      p->pos[0] = -400.0f;
+      //p->velocity[0] = -p->velocity[0] * p->bounce * dt;
+      p->velocity[0] = s->friction * -p->velocity[0] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+      p->velocity[2] += p->collision_chaos * myRandom() * dt;
+    }
+
+    if (p->pos[2] >= 400.0f) {
+      p->pos[2] = 400.0f;
+      //p->velocity[2] = -p->velocity[2] * p->bounce * dt;
+      p->velocity[2] = s->friction * -p->velocity[2] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+      p->velocity[0] += p->collision_chaos * myRandom() * dt;
+    }
+
+    if (p->pos[2] <= -400.0f) {
+      p->pos[2] = -400.0f;
+      p->velocity[2] = -p->velocity[2] * p->bounce;
+      //p->velocity[2] = friction * -p->velocity[2] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+      p->velocity[0] += p->collision_chaos * myRandom();
+    }
+  }
 }

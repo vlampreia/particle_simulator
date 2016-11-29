@@ -34,6 +34,8 @@ struct emitter *emitter_new(struct vector *particle_pool) {
 
   e->firing = 0;
 
+  e->emission_count = 1;
+
   return e;
 }
 
@@ -58,7 +60,7 @@ void emitter_fire(struct emitter *e, int count) {
 
 void emitter_step(struct emitter *e, double t) {
   if (t - e->last_fire_t > e->frequency) {
-    emitter_fire(e, 1);
+    emitter_fire(e, e->emission_count);
     //emitter_fire(e, 55);
     e->last_fire_t = t;
   }
@@ -80,12 +82,13 @@ static void _init_particle(struct emitter *e, struct particle *p) {
   p->pos[1] = e->position.y;
   p->pos[2] = e->position.z;
 
-  double pmod = e->vert_angle * myRandom();
-  double ymod = e->horiz_angle * myRandom();
+  double pmod = (e->pitch + (e->vert_angle  * myRandom())) * DEG_TO_RAD;
+  double ymod = (e->yaw   + (e->horiz_angle * myRandom())) * DEG_TO_RAD;
 
-  p->velocity[0] = -cos((e->pitch + pmod) * DEG_TO_RAD) * sin((e->yaw + ymod) * DEG_TO_RAD);
-  p->velocity[1] =  sin((e->pitch + pmod) * DEG_TO_RAD);
-  p->velocity[2] =  cos((e->pitch + pmod) * DEG_TO_RAD) * cos((e->yaw + ymod) * DEG_TO_RAD);
+  p->velocity[0] = -cos(pmod) * sin(ymod);
+  p->velocity[1] =  sin(pmod);
+  p->velocity[2] =  cos(pmod) * cos(ymod);
+
   GLfloat_normalise(p->velocity);
   p->velocity[0] *= e->force;
   p->velocity[1] *= e->force;
