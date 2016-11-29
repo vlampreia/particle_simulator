@@ -23,6 +23,10 @@ static double myPosRandom(void) {
 static double _clampedRand(double min, double max) {
   return min + rand() / ((double)RAND_MAX/(max-min));
 }
+static double _mind(double a, double b) {
+  if (a > b) return b;
+  return a;
+}
 
 #define NSIGN(x) ((x > 0) - (x < 0))
 
@@ -49,8 +53,8 @@ struct particle_system *particle_system_new(size_t numParticles) {
   s->friction = 0.98f;
   s->air_density = 1.1f;
 
-  s->collideFloor = 1;
-  s->collideWalls = 1;
+  s->collideFloor = 0;
+  s->collideWalls = 0;
 
   return s;
 }
@@ -82,6 +86,8 @@ static void _update_emitters(struct vector *elist, double t, double dt) {
     if (!elist->elements[i]) continue;
     if (!((struct emitter*)elist->elements[i])->firing) continue;
     emitter_step(elist->elements[i], t);
+    ((struct emitter*)elist->elements[i])->pitch += 10.0f;
+    ((struct emitter*)elist->elements[i])->yaw += 10.0f;
   }
 }
 
@@ -112,28 +118,38 @@ static inline void _update_particle_pos(
   double t,
   double dt
 ) {
-  double force = -s->gravity * p->mass;// * 1/dt;
+  static int trip = 0;
+  double force = 0;
+  //force = -s->gravity * p->mass;// * 1/dt;
   //double friction = 0.990f;
 
-  double airforce = s->air_density;
+  double airforce = 0.985;
+ //airforce = s->air_density;
 
   struct vector3f wind_force = (struct vector3f) {
     0.003 * _clampedRand(0.5,1.0) / p->mass,
-    0.0,
-    0.001 * _clampedRand(0.5,1.0) / p->mass
+    0.5,
+    0.002 * _clampedRand(0.5,1.0) / p->mass
   };
 
-  if (p->pos[1] <= 0.5) {
-    wind_force.x /= 1.2;
-    wind_force.y /= 1.2;
-  } else {
-    wind_force.x = p->pos[1] * wind_force.x;
-    wind_force.z = p->pos[1] * wind_force.z;
+//  if (p->pos[1] <= 0.5) {
+//    wind_force.x /= 1.2;
+//    wind_force.y /= 1.2;
+//  } else {
+    wind_force.x = p->pos[1]/10 * wind_force.x;
+    //wind_force.y = p->pos[1]/wind_force.x*wind_force.z;
+    wind_force.z = p->pos[1]/10 * wind_force.z;
+  //}
+  //
+  if (trip) {
+    wind_force.x = 0;
+    wind_force.y = 0;
+    wind_force.z = 0;
   }
 
   //force is static down 1 for now
   p->acceleration[0] = wind_force.x;
-  p->acceleration[1] = force;/// / p->mass;
+  p->acceleration[1] = wind_force.y+ force;/// / p->mass;
   //p->acceleration[1] -= airforce * p->velocity[1];
   p->acceleration[2] = wind_force.z;
 
@@ -164,10 +180,25 @@ static inline void _update_particle_pos(
   p->pos[1] += p->velocity[1] * dt;
   p->pos[2] += p->velocity[2] * dt;
 
-  struct vertex *v = &s->particle_pos[p->pos_idx];
-  v->x = p->pos[0];
-  v->y = p->pos[1];
-  v->z = p->pos[2];
+  //double e = sqrt(p->velocity[0]*p->velocity[0] + p->velocity[1]*p->velocity[1] + p->velocity[2]*p->velocity[2]);
+
+  double v = (p->tod_usec/(double)p->tod_max)*255;
+  p->color[3] = v;
+  p->color[0] -= v/255;//_mind(p->color[0], p->color[0]-v);
+  p->color[1] -= v/255;//_mind(p->color[1], p->color[1]-v);
+  p->color[2] -= v/255;//_mind(p->color[2], p->color[2]-v);
+
+  if (trip) {
+    p->color[0] += p->velocity[0]/255;
+    p->color[1] += p->velocity[1]/255;
+    p->color[2] += p->velocity[2]/255;
+  }
+
+
+//  struct vertex *v = &s->particle_pos[p->pos_idx];
+//  v->x = p->pos[0];
+//  v->y = p->pos[1];
+//  v->z = p->pos[2];
 }
 
 static inline void _update_particle_collision(struct particle_system *s, struct particle *p, double t, double dt) {

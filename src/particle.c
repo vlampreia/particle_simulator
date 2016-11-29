@@ -32,7 +32,10 @@ struct particle *particle_new(void) {
 
   p->mass = 1.0f;
 
+  p->size =1.0f;
+
   p->tod_usec = 0l;
+  p->tod_max = 1l;
 
   p->active = 0;
 
@@ -57,6 +60,8 @@ void particle_copy(struct particle *s, struct particle *t) {
   t->color[2] = s->color[2];
   t->color[3] = s->color[3];
 
+  t->size = s->size;
+
   //vector3f_copy(&s->pos, &t->pos);
 
   //vector3f_copy(&s->acceleration, &t->acceleration);
@@ -67,6 +72,7 @@ void particle_copy(struct particle *s, struct particle *t) {
 
   t->mass = s->mass;
   t->tod_usec = s->tod_usec;
+  t->tod_max = s->tod_max;
   t->active = s->active;
   t->bounce = s->bounce;
   t->collision_chaos = s->collision_chaos;

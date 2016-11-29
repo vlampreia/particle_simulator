@@ -12,6 +12,7 @@ struct particle {
   double collision_chaos;
 
   long tod_usec;
+  long tod_max;
 
   double bounce;
 
@@ -20,6 +21,8 @@ struct particle {
   GLubyte color[4];
 
   size_t pos_idx;
+
+  float size;
 };
 
 

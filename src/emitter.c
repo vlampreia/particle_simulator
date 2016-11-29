@@ -9,6 +9,9 @@
 #define DEG_TO_RAD 0.017453293
 
 static void _init_particle(struct emitter *e, struct particle *p);
+static double _clampedRand(double min, double max) {
+  return min + rand() / ((double)RAND_MAX/(max-min));
+}
 
 
 struct emitter *emitter_new(struct vector *particle_pool) {
@@ -60,6 +63,7 @@ void emitter_fire(struct emitter *e, int count) {
 
 void emitter_step(struct emitter *e, double t) {
   if (t - e->last_fire_t > e->frequency) {
+  //if (t - e->last_fire_t + _clampedRand(0,2*t) > e->frequency) {
     emitter_fire(e, e->emission_count);
     //emitter_fire(e, 55);
     e->last_fire_t = t;

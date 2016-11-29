@@ -59,11 +59,12 @@ void gui_element_set_dimensions(struct gui_element *e, int width, int height) {
 }
 
 void gui_element_set_str(struct gui_element *e, const char *str, int resize) {
-  char *nstr = realloc(e->str, sizeof(char)*sizeof(str));
+  size_t len = strlen(str);
+  char *nstr = realloc(e->str, len+1);
   if (!nstr) return;
   e->str = nstr;
   strcpy(e->str, str);
-  e->str[sizeof(str)] = '\0';
+  e->str[len] = '\0';
 
   if (resize) {
     e->width = 10 + GUI_ELEMENT_CHAR_WIDTH * strlen(str);
