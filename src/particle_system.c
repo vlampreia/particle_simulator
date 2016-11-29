@@ -23,11 +23,6 @@ static double myPosRandom(void) {
 static double _clampedRand(double min, double max) {
   return min + rand() / ((double)RAND_MAX/(max-min));
 }
-static double _clamp_double(double v, double min, double max) {
-  if (v > max) return max - v;
-  if (v < min) return min + v;
-  return v;
-}
 
 #define NSIGN(x) ((x > 0) - (x < 0))
 
@@ -109,10 +104,6 @@ static void _update_particles(struct particle_system *s, struct vector *plist, d
 
     _update_particle_collision(s, plist->elements[i], t, dt);
   }
-}
-
-static inline double _max_double(double a, double b) {
-  return a > b ? a : b;
 }
 
 static inline void _update_particle_pos(

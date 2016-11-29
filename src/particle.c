@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "vector3f.h"
 
-struct particle *particle_new() {
+struct particle *particle_new(void) {
   struct particle *p = malloc(sizeof(*p));
   if (!p) return NULL;
 

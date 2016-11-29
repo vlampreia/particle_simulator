@@ -23,7 +23,7 @@ struct particle {
 };
 
 
-struct particle *particle_new     ();
+struct particle *particle_new     (void);
 void             particle_delete  (struct particle **p);
 
 void             particle_copy    (struct particle *s, struct particle *t);

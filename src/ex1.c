@@ -19,7 +19,7 @@
 
 static double _avg(double a[], size_t n) {
   double s = 0;
-  for (int i=0; i<n; ++i) {
+  for (size_t i=0; i<n; ++i) {
     s += a[i];
   }
   return s/n;
@@ -39,7 +39,6 @@ static double myRandom(void)
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
 #define NUM_PARTICLES 1000000
-  //#define NUM_PARTICLES 10000
 #define NUM_EMITTERS 2
 #define NSEC_DIV 1000000 / 1000
 
@@ -261,26 +260,25 @@ static inline void render_particles(void) {
   int active = 0;
 
   glPointSize(5.0f);
-  //glEnableClientState(GL_VERTEX_ARRAY);
-//  glEnableClientState(GL_COLOR_ARRAY);
-//  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
-//  glColorPointer(3, GL_FLOAT, 0, _pSystem->particle_col);
-//  //glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
-//  glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
-//  glDisableClientState(GL_COLOR_ARRAY);
-//  glDisableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
+  glColorPointer(3, GL_FLOAT, 0, _pSystem->particle_col);
+  glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
+  //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
 
-  glPointSize(5.0f);
-  glBegin(GL_POINTS);
-    for (size_t i=0; i<_pSystem->particles->size; ++i) {
-      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
-      if (!p->active) continue;
+  //glBegin(GL_POINTS);
+  //  for (size_t i=0; i<_pSystem->particles->size; ++i) {
+  //    struct particle *p = (struct particle*)_pSystem->particles->elements[i];
+  //    if (!p->active) continue;
 
-      glColor4ubv(p->color);
-      glVertex3fv(p->pos);
-      active++;
-    }
-  glEnd();
+  //    glColor4ubv(p->color);
+  //    glVertex3fv(p->pos);
+  //    active++;
+  //  }
+  //glEnd();
 
   snprintf(_gui_buffer, 256, "Particles: %d", active);
   gui_element_set_str(txt_pcount, _gui_buffer, 1);
@@ -304,10 +302,10 @@ static void _render(void)
   snprintf(_gui_buffer, 256, "FPS: %f", 1000/(_statistics.lastRenderDuration+1));
   gui_element_set_str(txt_fps, _gui_buffer, 0);
 
-  snprintf(_gui_buffer, 256, "SIM MSPF: %f", 1000*_statistics.lastSimDuration);
+  snprintf(_gui_buffer, 256, "SIM MSPF: %f", _statistics.lastSimDuration);
   gui_element_set_str(txt_smspf, _gui_buffer, 0);
 
-  snprintf(_gui_buffer, 256, "SIM FPS: %f", 1/(_statistics.lastSimDuration));
+  snprintf(_gui_buffer, 256, "SIM FPS: %f", 1/(_statistics.lastSimDuration+1));
   gui_element_set_str(txt_sfps, _gui_buffer, 0);
 
   snprintf(_gui_buffer, 256, "air: %f", _pSystem->air_density);
@@ -323,10 +321,6 @@ static void _render(void)
 
   // Clear the screen
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  static int height = 400;
-  static int width = 400;
-  static int depth = 400;
 
   double x,y,z;
   GLfloat _z;
@@ -376,37 +370,6 @@ static void _render(void)
         e->position.y + 100 *  sin(pitch),
         e->position.z + 100 *  cos(pitch) * cos(yaw)
       };
-      //vector3f_normalise(&angle);
-///      angle.x += e->position.x;
-///      angle.y += e->position.y;
-///      angle.z += e->position.z;
-///      angle.x *= 100;
-///      angle.y *= 100;
-///      angle.z *= 100;
-      //vector3f_normalise(&angle);
-//      angle.x *= 100;
-//      angle.y *= 100;
-//      angle.z *= 100;
-
-      struct vector3f angle_l = (struct vector3f) {
-        e->position.x + 100*-cos(pitch + pmod) * sin(yaw + ymod),
-        e->position.y + 100* sin(pitch + pmod),
-        e->position.z + 100* cos(pitch + pmod) * cos(yaw + ymod)
-      };
-//      vector3f_normalise(&angle_l);
-//      angle_l.x *= 100;
-//      angle_l.y *= 100;
-//      angle_l.z *= 100;
-
-      struct vector3f angle_r = (struct vector3f) {
-        e->position.x +100* -cos(pitch - pmod) * sin(yaw - ymod),
-        e->position.y +100*  sin(pitch - pmod),
-        e->position.z +100*  cos(pitch - pmod) * cos(yaw - ymod)
-      };
-//      vector3f_normalise(&angle_r);
-//      angle_r.x *= 100;
-//      angle_r.y *= 100;
-//      angle_r.z *= 100;
 
       glBegin(GL_POINTS);
         glVertex3f(e->position.x, e->position.y, e->position.z);
@@ -417,14 +380,6 @@ static void _render(void)
         glVertex3f(e->position.x, e->position.y, e->position.z);
         glVertex3f(angle.x, angle.y, angle.z);
         glVertex3f(angle.x, e->position.y, angle.z);
-
-        //glVertex3f(e->position.x, e->position.y, e->position.z);
-        //glVertex3f(angle_l.x, angle_l.y, angle_l.z);
-        //glVertex3f(angle_l.x, angle_r.y, angle_l.z);
-
-        //glVertex3f(e->position.x, e->position.y, e->position.z);
-        //glVertex3f(angle_r.x, angle_l.y, angle_r.z);
-        //glVertex3f(angle_r.x, angle_r.y, angle_r.z);
       glEnd();
 
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -825,7 +780,6 @@ static void makeWalls() {
 }
 
 static void makeFloor() {
-  int height = 400;
   int width = 400;
   int depth = 400;
   floorList = glGenLists(1);
@@ -898,10 +852,6 @@ static void makeGradFloor() {
 
 //------------------------------------------------------------------------------
 
-static void _handle_input(void) {
-
-}
-
 static void init_glut(int argc, char *argv[])
 {
   glutInit(&argc, argv);
@@ -916,21 +866,7 @@ static void init_glut(int argc, char *argv[])
   glutMotionFunc(mouse_move);
   glutPassiveMotionFunc(mouse_move);
   glutReshapeFunc(reshape);
-
-  //glEnable(GL_LIGHTING);
-//  glEnable(GL_LIGHT0);
-//  glEnable(GL_COLOR_MATERIAL);
 }
-
-
-//static void _mainLoop(void) {
-//  glutMainLoopEvent();
-//  while(1) {
-//    _handle_input();
-//    _step_simulation();
-//    _render();
-//  }
-//}
 
 //------------------------------------------------------------------------------
 
@@ -963,11 +899,7 @@ int main(int argc, char *argv[])
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_ALWAYS);
 
-//  glDepthRange(0.0f, 1.0f);
-  //glEnable(GL_CULL_FACE);
-  //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &global_time_p);
   glutMainLoop();
-  //_mainLoop();
 
   return 0;
 }
