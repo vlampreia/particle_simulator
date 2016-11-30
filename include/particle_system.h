@@ -15,6 +15,7 @@ struct vertexb {
   GLubyte x;
   GLubyte y;
   GLubyte z;
+  GLubyte a;
 };
 
 struct particle_system {

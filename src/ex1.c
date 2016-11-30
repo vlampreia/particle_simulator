@@ -61,6 +61,7 @@ static int _move_emitter = 0;
 static int _drawWalls = 0;
 static int _drawFloor = 0;
 static int _draw_ui = 1;
+static int _do_phys = 1;
 
 static char _gui_buffer[256];
 
@@ -228,13 +229,15 @@ static void _step_simulation(void) {
   _statistics.lastSimDuration = _avg(_statistics.lastSimDurations, _statistics.maxidx);
   _statistics.lastSimTime = newTime;
 
-  accumulator += dt;
+  if (_do_phys) {
+    accumulator += dt;
 
-  //TODO: FIX TIMESTEP -- is idlefunc doing some dt shit??
-  while (accumulator >= dt) {
-    particle_system_step(_pSystem, t, 1);//1.0);
-    accumulator -= dt;
-    t += dt;
+    //TODO: FIX TIMESTEP -- is idlefunc doing some dt shit??
+    while (accumulator >= dt) {
+      particle_system_step(_pSystem, t, 1);//1.0);
+      accumulator -= dt;
+      t += dt;
+    }
   }
   
 
@@ -267,12 +270,12 @@ static int count = NUM_PARTICLES/10;
 static inline void render_particles(void) {
   int active = 0;
 
-  glPointSize(0.5f);
+  glPointSize(1.0f);
 
   glEnableClientState(GL_VERTEX_ARRAY);
   glEnableClientState(GL_COLOR_ARRAY);
   glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
-  glColorPointer(3, GL_UNSIGNED_BYTE, 0, _pSystem->particle_col);
+  glColorPointer(4, GL_UNSIGNED_BYTE, 0, _pSystem->particle_col);
   glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
   //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
   glDisableClientState(GL_COLOR_ARRAY);
@@ -436,6 +439,7 @@ static void _render(void)
     glCallList(wallsList);
   }
 
+  glPointSize(1);
   if (_draw_ui) gui_manager_draw(_guiManager);
 
   glutSwapBuffers();
@@ -459,7 +463,7 @@ static void keyboard(unsigned char key, int x, int y)
       ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing = !((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing;
       break;
 
-    case 32: emitter_fire(_pSystem->emitters->elements[_ctrl_mode], 1); break;
+    //case 32: emitter_fire(_pSystem->emitters->elements[_ctrl_mode], 1); break;
 
     case 97: axisEnabled = !axisEnabled; break;
 
@@ -486,6 +490,8 @@ static void keyboard(unsigned char key, int x, int y)
 
     case 117: _draw_ui = !_draw_ui; break;
     case 101: _toggleEdit(); break;
+
+    case 32: _do_phys = !_do_phys;
 
     default: break;
   }
@@ -638,7 +644,7 @@ static void init_psys(void) {
   e2->base_particle->base_color[0] = 255;
   e2->base_particle->base_color[1] = 115;
   e2->base_particle->base_color[2] = 105;
-  e2->base_particle->base_color[3] = 255;
+  e2->base_particle->base_color[3] = 55;
   e2->base_particle->mass = 0.8f;
   e2->base_particle->bounce = 0.9f;
   e2->base_particle->size = 3.0f;
@@ -664,11 +670,11 @@ static void init_psys(void) {
   e2->base_particle->color[0] = 255;
   e2->base_particle->color[1] = 175;
   e2->base_particle->color[2] = 105;
-  e2->base_particle->color[3] = 255;
+  e2->base_particle->color[3] = 0;
   e2->base_particle->base_color[0] = 255;
   e2->base_particle->base_color[1] = 165;
   e2->base_particle->base_color[2] = 105;
-  e2->base_particle->base_color[3] = 255;
+  e2->base_particle->base_color[3] = 50;
   e2->base_particle->mass = 0.8f;
   e2->base_particle->bounce = 0.9f;
   e2->base_particle->size = 3.0f;

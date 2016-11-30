@@ -45,7 +45,7 @@ struct particle_system *particle_system_new(size_t numParticles) {
     struct particle *p = particle_new();
     p->pos_idx = i;
     vector_add(s->particles, p);
-    s->particle_col[i] = (struct vertexb){255,0,0};
+    s->particle_col[i] = (struct vertexb){255,0,0,255};
     s->particle_idx[i] = i;
   }
 
@@ -135,38 +135,35 @@ static inline void _update_particle_pos(
 ) {
   static int trip = 0;
   double force = 0;
-  //force = -s->gravity * p->mass;// * 1/dt;
-  //double friction = 0.990f;
 
-  double airforce = 1;//0.985;
- //airforce = s->air_density;
-
-  struct vector3f wind_force = (struct vector3f) {
-    0.0003 * _clampedRand(0.5,1.0) / p->mass,
-    0.5,
-    0.002 * _clampedRand(0.5,1.0) / p->mass
-  };
+//  double airforce = 1;//0.985;
+//
+//  struct vector3f wind_force = (struct vector3f) {
+//    0.0003 * _clampedRand(0.5,1.0) / p->mass,
+//    0.5,
+//    0.002 * _clampedRand(0.5,1.0) / p->mass
+//  };
 
 //  if (p->pos[1] <= 0.5) {
 //    wind_force.x /= 1.2;
 //    wind_force.y /= 1.2;
 //  } else {
-    wind_force.x = p->pos[1]/10 * wind_force.x;
-    //wind_force.y = p->pos[1]/wind_force.x*wind_force.z;
-    wind_force.z = p->pos[1]/10 * wind_force.z;
+//    wind_force.x = p->pos[1]/10 * wind_force.x;
+//    //wind_force.y = p->pos[1]/wind_force.x*wind_force.z;
+//    wind_force.z = p->pos[1]/10 * wind_force.z;
   //}
   //
   //if (trip) {
-    wind_force.x = 0;
-    wind_force.y = 0;
-    wind_force.z = 0;
+//    wind_force.x = 0;
+//    wind_force.y = 0;
+//    wind_force.z = 0;
   //}
 
   //force is static down 1 for now
-  p->acceleration[0] = wind_force.x;
-  p->acceleration[1] = wind_force.y+ force;/// / p->mass;
-  //p->acceleration[1] -= airforce * p->velocity[1];
-  p->acceleration[2] = wind_force.z;
+//  p->acceleration[0] = wind_force.x;
+//  p->acceleration[1] = wind_force.y+ force;/// / p->mass;
+//  //p->acceleration[1] -= airforce * p->velocity[1];
+//  p->acceleration[2] = wind_force.z;
 
 //  p->acceleration[0] += -p->velocity[0] /p->mass ;
 //  p->acceleration[2] += -p->velocity[2] /p->mass ;
@@ -181,14 +178,14 @@ static inline void _update_particle_pos(
 //  p->velocity[1] *= friction;
 //  p->velocity[2] *= friction;
 
-  p->velocity[0] += p->acceleration[0];
-  p->velocity[1] += p->acceleration[1];
-  p->velocity[2] += p->acceleration[2];
+//  p->velocity[0] += p->acceleration[0];
+//  p->velocity[1] += p->acceleration[1];
+//  p->velocity[2] += p->acceleration[2];
 
 
-  p->velocity[0] /= airforce;
-  p->velocity[1] /= airforce;
-  p->velocity[2] /= airforce;
+//  p->velocity[0] /= airforce;
+//  p->velocity[1] /= airforce;
+//  p->velocity[2] /= airforce;
 
 //  p->velocity[0] += 0-p->pos[0] * 0.000199;
 //  p->velocity[1] += 0-p->pos[1] * 0.000199;
@@ -220,17 +217,18 @@ static inline void _update_particle_pos(
 
   //vector3f_normalise(p->velocity);
 
-  p->pos[0] += p->velocity[0] * dt;
-  p->pos[1] += p->velocity[1] * dt;
-  p->pos[2] += p->velocity[2] * dt;
+  p->pos[0] += p->velocity[0];// * dt;
+  p->pos[1] += p->velocity[1];// * dt;
+  p->pos[2] += p->velocity[2];// * dt;
 
   //double e = sqrt(p->velocity[0]*p->velocity[0] + p->velocity[1]*p->velocity[1] + p->velocity[2]*p->velocity[2]);
 
-  double v = (p->tod_usec/(double)p->tod_max)*255;
+  double v = (p->tod_usec/(double)p->tod_max)*p->base_color[3];
+  double vd = v/(double)255;
   p->color[3] = v;
-  p->color[0] = p->base_color[0] * (v/(double)255);
-  p->color[1] = p->base_color[1] * (v/(double)255);
-  p->color[2] = p->base_color[2] * (v/(double)255);
+//  p->color[0] = p->base_color[0] * vd;
+//  p->color[1] = p->base_color[1] * vd;
+//  p->color[2] = p->base_color[2] * vd;
   //double m = sqrt(p->velocity[0]*p->velocity[0] + p->velocity[1]*p->velocity[1] + p->velocity[2]*p->velocity[2]);
 
   //p->color[0] -= (v/255)/p->tod_max;//_mind(p->color[0], p->color[0]-v);
@@ -253,6 +251,7 @@ static inline void _update_particle_pos(
   _vb->x = p->color[0];
   _vb->y = p->color[1];
   _vb->z = p->color[2];
+  _vb->a = p->color[3];
 }
 
 static inline void _update_particle_collision(struct particle_system *s, struct particle *p, double t, double dt) {
