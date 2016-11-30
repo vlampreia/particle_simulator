@@ -38,7 +38,8 @@ static double myRandom(void)
 
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
-#define NUM_PARTICLES 1000000
+//#define NUM_PARTICLES 1000000
+#define NUM_PARTICLES 300000
 #define NUM_EMITTERS 2
 #define NSEC_DIV 1000000 / 1000
 
@@ -259,33 +260,37 @@ static void _step_simulation(void) {
 
 //------------------------------------------------------------------------------
 
+static double _clampedRand(double min, double max) {
+  return min + rand() / ((double)RAND_MAX/(max-min));
+}
 static int count = NUM_PARTICLES/10;
 static inline void render_particles(void) {
   int active = 0;
 
-//  glEnableClientState(GL_VERTEX_ARRAY);
-//  glEnableClientState(GL_COLOR_ARRAY);
-//  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
-//  glColorPointer(3, GL_FLOAT, 0, _pSystem->particle_col);
-//  glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
-//  //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
-//  glDisableClientState(GL_COLOR_ARRAY);
-//  glDisableClientState(GL_VERTEX_ARRAY);
+  glPointSize(0.5f);
 
-  glPointSize(3.0f);
-  glBegin(GL_POINTS);
-    for (size_t i=0; i<_pSystem->particles->size; ++i) {
-      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
-      if (!p->active) continue;
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
+  glColorPointer(3, GL_UNSIGNED_BYTE, 0, _pSystem->particle_col);
+  glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
+  //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
 
-      //glPointSize(p->size);
   //glBegin(GL_POINTS);
-      glColor4ubv(p->color);
-      glVertex3fv(p->pos);
-      active++;
-  //glEnd();
-    }
-  glEnd();
+//    for (size_t i=0; i<_pSystem->particles->size; ++i) {
+//      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
+//      if (!p->active) continue;
+//
+//      glPointSize(_clampedRand(1.0f, 5.0f));
+//  glBegin(GL_POINTS);
+//      glColor4ubv(p->color);
+//      glVertex3fv(p->pos);
+//      active++;
+//  glEnd();
+//    }
+//  glEnd();
 
   snprintf(_gui_buffer, 256, "Particles: %d", active);
   gui_element_set_str(txt_pcount, _gui_buffer, 1);
@@ -414,6 +419,18 @@ static void _render(void)
 
 
   render_particles();
+
+  glPointSize(10);
+  glBegin(GL_POINTS);
+  for (size_t i=0; i<3; ++i) {
+  glColor3f(1-_pSystem->attractors[i][3]/10,0,1.0);
+    glVertex3f(
+      _pSystem->attractors[i][0],
+      _pSystem->attractors[i][1],
+      _pSystem->attractors[i][2]
+    );
+  }
+  glEnd();
 
   if (_drawWalls) {
     glCallList(wallsList);
@@ -554,17 +571,26 @@ static void init_psys(void) {
     e->yaw += i*40;
     //e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     //vector3f_normalise(&e->orientation);
-    e->force = 80.0f + i * 10.0f;
+    e->force = 1.0f + i * 5.0f;
     //e->force = 45.8f  - 1.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
-    e->base_particle->color[0] = 255;
+    e->position = (struct vector3f) {-500.0f*i, 500.0f, i*500.0f};
+    e->base_particle->color[0] = 2550;
     e->base_particle->color[1] = 40 * i;
     e->base_particle->color[2] = 20 * i;
+    e->base_particle->color[3] = 255;
+    e->base_particle->base_color[0] = 255;
+    e->base_particle->base_color[1] = 40 * i;
+    e->base_particle->base_color[2] = 20 * i;
+    e->base_particle->base_color[3] = 255;
     e->base_particle->mass = 0.5f;
     e->base_particle->bounce = 0.9999f;
     e->base_particle->collision_chaos = 0.4f;
     //e->base_particle->color = (struct vector3f){1.0f, 0.0f, 0.0f};
+    e->base_particle->tod_usec = 5000;
+    e->base_particle->tod_max = e->base_particle->tod_usec;
+    e->emission_count = 10;
     e->frequency = 0;
     e->horiz_angle = i * 10.0f;
     e->vert_angle = i * 10.0f;
@@ -602,16 +628,17 @@ static void init_psys(void) {
   e2->horiz_angle = 720.0f;
   e2->vert_angle = 720.0f;
   //vector3f_normalise(&e2->orientation);
-  e2->force = 50;//60.01f;
+  e2->force = 2000;//60.01f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
-  e2->base_particle->color[0] = 255;
-  e2->base_particle->color[1] = 155;
-  e2->base_particle->color[2] = 80;
   e2->base_particle->color[0] = 255;
   e2->base_particle->color[1] = 175;
   e2->base_particle->color[2] = 105;
   e2->base_particle->color[3] = 100;
+  e2->base_particle->base_color[0] = 255;
+  e2->base_particle->base_color[1] = 115;
+  e2->base_particle->base_color[2] = 105;
+  e2->base_particle->base_color[3] = 255;
   e2->base_particle->mass = 0.8f;
   e2->base_particle->bounce = 0.9f;
   e2->base_particle->size = 3.0f;
@@ -620,31 +647,37 @@ static void init_psys(void) {
   //e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->base_particle->collision_chaos = 0.01f;
   e2->frequency = 2;
-  e2->emission_count = 1502;
+  e2->emission_count = 50000;
   particle_system_add_emitter(_pSystem, e2);
 
   e2 = emitter_new(NULL);
-  e2->position = (struct vector3f) {-50.0f, 500.0f, 50.0f};
+  e2->position = (struct vector3f) {-5000.0f, 5000.0f, 5000.0f};
   //e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
   e2->pitch = 0.0f;
   e2->yaw = 0.0f;
   e2->horiz_angle = 720.0f;
   e2->vert_angle = 720.0f;
   //vector3f_normalise(&e2->orientation);
-  e2->force = 100;//60.01f;
+  e2->force = 900;//60.01f;
   e2->base_particle = particle_new();
   initialise_particle(e2->base_particle);
   e2->base_particle->color[0] = 255;
   e2->base_particle->color[1] = 175;
   e2->base_particle->color[2] = 105;
   e2->base_particle->color[3] = 255;
+  e2->base_particle->base_color[0] = 255;
+  e2->base_particle->base_color[1] = 165;
+  e2->base_particle->base_color[2] = 105;
+  e2->base_particle->base_color[3] = 255;
   e2->base_particle->mass = 0.8f;
   e2->base_particle->bounce = 0.9f;
   e2->base_particle->size = 3.0f;
   //e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->base_particle->collision_chaos = 0.01f;
   e2->frequency = 0.0;
-  e2->emission_count = 102;
+  e2->emission_count = 500;
+  e2->base_particle->tod_usec = 1000;
+  e2->base_particle->tod_max = e2->base_particle->tod_usec;
   particle_system_add_emitter(_pSystem, e2);
 }
 
@@ -729,7 +762,7 @@ static void reshape(int width, int height)
   glViewport(0, 0, (GLsizei)width, (GLsizei)height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(60, (GLfloat)width / (GLfloat)height, 10.0, 10000000.0);
+  gluPerspective(60, (GLfloat)width / (GLfloat)height, 10.0, 1000000000.0);
   glMatrixMode(GL_MODELVIEW);
 }
 

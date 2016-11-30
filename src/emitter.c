@@ -97,4 +97,8 @@ static void _init_particle(struct emitter *e, struct particle *p) {
   p->velocity[0] *= e->force;
   p->velocity[1] *= e->force;
   p->velocity[2] *= e->force;
+
+  p->base_color[0] = e->base_particle->color[0];
+  p->base_color[1] = e->base_particle->color[1];
+  p->base_color[2] = e->base_particle->color[2];
 }

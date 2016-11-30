@@ -19,6 +19,7 @@ struct particle {
   int active;
 
   GLubyte color[4];
+  GLubyte base_color[4];
 
   size_t pos_idx;
 

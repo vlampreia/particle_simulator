@@ -37,7 +37,7 @@ struct particle_system *particle_system_new(size_t numParticles) {
 
   s->particles = vector_new(numParticles, 0);
   s->particle_pos = malloc(sizeof(struct vertex) * numParticles);
-  s->particle_col = malloc(sizeof(struct vertex) * numParticles);
+  s->particle_col = malloc(sizeof(struct vertexb) * numParticles);
   s->particle_idx = malloc(sizeof(GLubyte) * numParticles);
   s->emitters = vector_new(10, 0);
 
@@ -45,16 +45,31 @@ struct particle_system *particle_system_new(size_t numParticles) {
     struct particle *p = particle_new();
     p->pos_idx = i;
     vector_add(s->particles, p);
-    s->particle_col[i] = (struct vertex){1.0,0.0,0.0};
+    s->particle_col[i] = (struct vertexb){255,0,0};
     s->particle_idx[i] = i;
   }
 
   s->gravity = 9.807f;
   s->friction = 0.98f;
-  s->air_density = 1.1f;
+  s->air_density = 1.0f;
 
   s->collideFloor = 0;
   s->collideWalls = 0;
+
+  s->attractors[0][0] = 0;
+  s->attractors[0][1] = 0;
+  s->attractors[0][2] = 50000;
+  s->attractors[0][3] = -4.0;
+
+  s->attractors[1][0] = 50000;
+  s->attractors[1][1] = -50000;
+  s->attractors[1][2] = -500;
+  s->attractors[1][3] = 2.2;
+
+  s->attractors[2][0] = -5000;
+  s->attractors[2][1] = 50000;
+  s->attractors[2][2] = 8000;
+  s->attractors[2][3] = 4.1;
 
   return s;
 }
@@ -86,8 +101,8 @@ static void _update_emitters(struct vector *elist, double t, double dt) {
     if (!elist->elements[i]) continue;
     if (!((struct emitter*)elist->elements[i])->firing) continue;
     emitter_step(elist->elements[i], t);
-    ((struct emitter*)elist->elements[i])->pitch += 10.0f;
-    ((struct emitter*)elist->elements[i])->yaw += 10.0f;
+//    ((struct emitter*)elist->elements[i])->pitch += 10.0f;
+//    ((struct emitter*)elist->elements[i])->yaw += 10.0f;
   }
 }
 
@@ -123,11 +138,11 @@ static inline void _update_particle_pos(
   //force = -s->gravity * p->mass;// * 1/dt;
   //double friction = 0.990f;
 
-  double airforce = 0.985;
+  double airforce = 1;//0.985;
  //airforce = s->air_density;
 
   struct vector3f wind_force = (struct vector3f) {
-    0.003 * _clampedRand(0.5,1.0) / p->mass,
+    0.0003 * _clampedRand(0.5,1.0) / p->mass,
     0.5,
     0.002 * _clampedRand(0.5,1.0) / p->mass
   };
@@ -141,11 +156,11 @@ static inline void _update_particle_pos(
     wind_force.z = p->pos[1]/10 * wind_force.z;
   //}
   //
-  if (trip) {
+  //if (trip) {
     wind_force.x = 0;
     wind_force.y = 0;
     wind_force.z = 0;
-  }
+  //}
 
   //force is static down 1 for now
   p->acceleration[0] = wind_force.x;
@@ -170,9 +185,38 @@ static inline void _update_particle_pos(
   p->velocity[1] += p->acceleration[1];
   p->velocity[2] += p->acceleration[2];
 
+
   p->velocity[0] /= airforce;
   p->velocity[1] /= airforce;
   p->velocity[2] /= airforce;
+
+//  p->velocity[0] += 0-p->pos[0] * 0.000199;
+//  p->velocity[1] += 0-p->pos[1] * 0.000199;
+//  p->velocity[2] += 0-p->pos[2] * 0.000199;
+
+  static const double EULER_CONST = 2.71828182845904523536;
+  static const double G = 0.0005;
+  static const double factor=3/2;
+
+  for (size_t i=0; i<3; ++i) {
+    double dv[3] = {
+      s->attractors[i][0]-p->pos[0],
+      s->attractors[i][1]-p->pos[1],
+      s->attractors[i][2]-p->pos[2]
+    };
+
+    double magnitude = sqrt(dv[0]*dv[0] + dv[1]*dv[1] + dv[2]+dv[2]);
+
+    double dvn[3] = {
+      dv[0] / magnitude,
+      dv[1] / magnitude,
+      dv[2] / magnitude
+    };
+
+    p->velocity[0] += G * (s->attractors[i][3] * dv[0])/pow((dvn[0]*dvn[0] + EULER_CONST*EULER_CONST), factor);
+    p->velocity[1] += G * (s->attractors[i][3] * dv[1])/pow((dvn[1]*dvn[1] + EULER_CONST*EULER_CONST), factor);
+    p->velocity[2] += G * (s->attractors[i][3] * dv[2])/pow((dvn[2]*dvn[2] + EULER_CONST*EULER_CONST), factor);
+  }
 
   //vector3f_normalise(p->velocity);
 
@@ -184,9 +228,14 @@ static inline void _update_particle_pos(
 
   double v = (p->tod_usec/(double)p->tod_max)*255;
   p->color[3] = v;
-  p->color[0] -= v/255;//_mind(p->color[0], p->color[0]-v);
-  p->color[1] -= v/255;//_mind(p->color[1], p->color[1]-v);
-  p->color[2] -= v/255;//_mind(p->color[2], p->color[2]-v);
+  p->color[0] = p->base_color[0] * (v/(double)255);
+  p->color[1] = p->base_color[1] * (v/(double)255);
+  p->color[2] = p->base_color[2] * (v/(double)255);
+  //double m = sqrt(p->velocity[0]*p->velocity[0] + p->velocity[1]*p->velocity[1] + p->velocity[2]*p->velocity[2]);
+
+  //p->color[0] -= (v/255)/p->tod_max;//_mind(p->color[0], p->color[0]-v);
+  //p->color[1] -= (v/255)/p->tod_max;//_mind(p->color[1], p->color[1]-v);
+  //p->color[2] -= (v/255)/p->tod_max;//_mind(p->color[2], p->color[2]-v);
 
   if (trip) {
     p->color[0] += p->velocity[0]/255;
@@ -195,10 +244,15 @@ static inline void _update_particle_pos(
   }
 
 
-//  struct vertex *v = &s->particle_pos[p->pos_idx];
-//  v->x = p->pos[0];
-//  v->y = p->pos[1];
-//  v->z = p->pos[2];
+  struct vertex *_v = &s->particle_pos[p->pos_idx];
+  _v->x = p->pos[0];
+  _v->y = p->pos[1];
+  _v->z = p->pos[2];
+
+  struct vertexb *_vb = &s->particle_col[p->pos_idx];
+  _vb->x = p->color[0];
+  _vb->y = p->color[1];
+  _vb->z = p->color[2];
 }
 
 static inline void _update_particle_collision(struct particle_system *s, struct particle *p, double t, double dt) {

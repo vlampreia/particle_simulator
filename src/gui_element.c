@@ -26,9 +26,11 @@ struct gui_element *gui_element_new(
   else e->height = height;
 
   e->str = NULL;
+  e->str = malloc(256);
   if (str != NULL) {
-    e->str = malloc(sizeof(str));
+    //e->str = malloc(sizeof(str));
     strcpy(e->str, str);
+    e->str[255] = '\0';
   }
 
   e->callback = callback;
@@ -59,12 +61,11 @@ void gui_element_set_dimensions(struct gui_element *e, int width, int height) {
 }
 
 void gui_element_set_str(struct gui_element *e, const char *str, int resize) {
-  size_t len = strlen(str);
-  char *nstr = realloc(e->str, len+1);
-  if (!nstr) return;
-  e->str = nstr;
+  //char *nstr = realloc(e->str, len+1);
+  //if (!nstr) return;
+  //e->str = nstr;
   strcpy(e->str, str);
-  e->str[len] = '\0';
+  e->str[255] = '\0';
 
   if (resize) {
     e->width = 10 + GUI_ELEMENT_CHAR_WIDTH * strlen(str);
@@ -92,10 +93,10 @@ void gui_element_draw(struct gui_element *e) {
   glCallList(e->compiled_list);
   size_t i = 0;
   int x_offset = 5;
-  glColor4ub(0, 0, 0, 255);
+  glColor4ub(255, 0, 0, 255);
   glRasterPos2i(e->x + x_offset, 5 + e->y);
   while(e->str[i] != '\0' && x_offset < e->width - GUI_ELEMENT_CHAR_WIDTH) {
-    glutBitmapCharacter(GLUT_BITMAP_9_BY_15, e->str[i]);
+    glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, e->str[i]);
     ++i;
     x_offset += GUI_ELEMENT_CHAR_WIDTH;
   }

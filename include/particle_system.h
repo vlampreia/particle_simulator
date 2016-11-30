@@ -11,10 +11,16 @@ struct vertex {
   GLfloat x,y,z;
 };
 
+struct vertexb {
+  GLubyte x;
+  GLubyte y;
+  GLubyte z;
+};
+
 struct particle_system {
   struct vector *particles;
   struct vertex *particle_pos;
-  struct vertex *particle_col;
+  struct vertexb *particle_col;
   GLubyte       *particle_idx;
   struct vector *emitters;
 
@@ -24,6 +30,8 @@ struct particle_system {
 
   int collideFloor;
   int collideWalls;
+
+  double attractors[3][4];
 };
 
 
