@@ -39,7 +39,7 @@ static double myRandom(void)
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
 //#define NUM_PARTICLES 1000000
-#define NUM_PARTICLES 300000
+#define NUM_PARTICLES 1000000
 #define NUM_EMITTERS 2
 #define NSEC_DIV 1000000 / 1000
 
@@ -425,12 +425,13 @@ static void _render(void)
 
   glPointSize(10);
   glBegin(GL_POINTS);
-  for (size_t i=0; i<3; ++i) {
-  glColor3f(1-_pSystem->attractors[i][3]/10,0,1.0);
+  for (size_t i=0; i<_pSystem->num_attractors; ++i) {
+    size_t idx = i*4;
+    glColor3f(1-_pSystem->attractors[idx + 3]/10,0,1.0);
     glVertex3f(
-      _pSystem->attractors[i][0],
-      _pSystem->attractors[i][1],
-      _pSystem->attractors[i][2]
+      _pSystem->attractors[idx + 0],
+      _pSystem->attractors[idx + 1],
+      _pSystem->attractors[idx + 2]
     );
   }
   glEnd();
@@ -639,12 +640,12 @@ static void init_psys(void) {
   initialise_particle(e2->base_particle);
   e2->base_particle->color[0] = 255;
   e2->base_particle->color[1] = 175;
-  e2->base_particle->color[2] = 105;
+  e2->base_particle->color[2] = 205;
   e2->base_particle->color[3] = 100;
   e2->base_particle->base_color[0] = 255;
   e2->base_particle->base_color[1] = 115;
-  e2->base_particle->base_color[2] = 105;
-  e2->base_particle->base_color[3] = 55;
+  e2->base_particle->base_color[2] = 205;
+  e2->base_particle->base_color[3] = 75;
   e2->base_particle->mass = 0.8f;
   e2->base_particle->bounce = 0.9f;
   e2->base_particle->size = 3.0f;
@@ -670,11 +671,11 @@ static void init_psys(void) {
   e2->base_particle->color[0] = 255;
   e2->base_particle->color[1] = 175;
   e2->base_particle->color[2] = 105;
-  e2->base_particle->color[3] = 0;
+  e2->base_particle->color[3] = 60;
   e2->base_particle->base_color[0] = 255;
   e2->base_particle->base_color[1] = 165;
   e2->base_particle->base_color[2] = 105;
-  e2->base_particle->base_color[3] = 50;
+  e2->base_particle->base_color[3] = 60;
   e2->base_particle->mass = 0.8f;
   e2->base_particle->bounce = 0.9f;
   e2->base_particle->size = 3.0f;

@@ -30,6 +30,13 @@ static double _mind(double a, double b) {
 
 #define NSIGN(x) ((x > 0) - (x < 0))
 
+static void _configure_attractor(double *a, size_t i, double x, double y, double z, double g) {
+  size_t idx = i*4;
+  a[idx] = x;
+  a[idx + 1] = y;
+  a[idx + 2] = z;
+  a[idx + 3] = g;
+}
 
 struct particle_system *particle_system_new(size_t numParticles) {
   struct particle_system *s = malloc(sizeof(*s));
@@ -56,20 +63,13 @@ struct particle_system *particle_system_new(size_t numParticles) {
   s->collideFloor = 0;
   s->collideWalls = 0;
 
-  s->attractors[0][0] = 0;
-  s->attractors[0][1] = 0;
-  s->attractors[0][2] = 50000;
-  s->attractors[0][3] = -4.0;
+  s->num_attractors = 4;
+  s->attractors = malloc(sizeof(*s->attractors) * 4 * s->num_attractors);
 
-  s->attractors[1][0] = 50000;
-  s->attractors[1][1] = -50000;
-  s->attractors[1][2] = -500;
-  s->attractors[1][3] = 2.2;
-
-  s->attractors[2][0] = -5000;
-  s->attractors[2][1] = 50000;
-  s->attractors[2][2] = 8000;
-  s->attractors[2][3] = 4.1;
+  _configure_attractor(s->attractors, 0, 0, 0, 50000, -4.0);
+  _configure_attractor(s->attractors, 1, 50000, -50000, -500, 2.2);
+  _configure_attractor(s->attractors, 2, -5000, 50000, 8000, 4.1);
+  _configure_attractor(s->attractors, 3, 5000000, 0, 500000, -0.01);
 
   return s;
 }
@@ -195,11 +195,15 @@ static inline void _update_particle_pos(
   static const double G = 0.0005;
   static const double factor=3/2;
 
-  for (size_t i=0; i<3; ++i) {
+  for (size_t i=0; i<s->num_attractors; ++i) {
+    size_t idx = i*4;
+
+    double mass = s->attractors[idx + 3];
+
     double dv[3] = {
-      s->attractors[i][0]-p->pos[0],
-      s->attractors[i][1]-p->pos[1],
-      s->attractors[i][2]-p->pos[2]
+      s->attractors[idx + 0] - p->pos[0],
+      s->attractors[idx + 1] - p->pos[1],
+      s->attractors[idx + 2] - p->pos[2]
     };
 
     double magnitude = sqrt(dv[0]*dv[0] + dv[1]*dv[1] + dv[2]+dv[2]);
@@ -210,9 +214,11 @@ static inline void _update_particle_pos(
       dv[2] / magnitude
     };
 
-    p->velocity[0] += G * (s->attractors[i][3] * dv[0])/pow((dvn[0]*dvn[0] + EULER_CONST*EULER_CONST), factor);
-    p->velocity[1] += G * (s->attractors[i][3] * dv[1])/pow((dvn[1]*dvn[1] + EULER_CONST*EULER_CONST), factor);
-    p->velocity[2] += G * (s->attractors[i][3] * dv[2])/pow((dvn[2]*dvn[2] + EULER_CONST*EULER_CONST), factor);
+    double e2 = EULER_CONST * EULER_CONST;
+
+    p->velocity[0] += G * ((mass * dv[0])/pow((dvn[0]*dvn[0] + e2), factor));
+    p->velocity[1] += G * ((mass * dv[1])/pow((dvn[1]*dvn[1] + e2), factor));
+    p->velocity[2] += G * ((mass * dv[2])/pow((dvn[2]*dvn[2] + e2), factor));
   }
 
   //vector3f_normalise(p->velocity);

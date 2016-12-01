@@ -32,7 +32,9 @@ struct particle_system {
   int collideFloor;
   int collideWalls;
 
-  double attractors[3][4];
+  size_t num_attractors;
+  double *attractors;
+  //double attractors[3][4];
 };
 
 
