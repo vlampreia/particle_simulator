@@ -39,7 +39,7 @@ static double myRandom(void)
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
 //#define NUM_PARTICLES 1000000
-#define NUM_PARTICLES 1000000
+#define NUM_PARTICLES 300000
 #define NUM_EMITTERS 2
 #define NSEC_DIV 1000000 / 1000
 
@@ -578,7 +578,7 @@ static void init_psys(void) {
     e->yaw += i*40;
     //e->orientation = (struct vector3f) {-1.0f * myRandom(), 1.0f - 0.8f *myRandom(), 1.0f * myRandom()};
     //vector3f_normalise(&e->orientation);
-    e->force = 1.0f + i * 5.0f;
+    e->force = 10000.0f + i * 5.0f;
     //e->force = 45.8f  - 1.5f * myRandom();
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
@@ -658,7 +658,8 @@ static void init_psys(void) {
   particle_system_add_emitter(_pSystem, e2);
 
   e2 = emitter_new(NULL);
-  e2->position = (struct vector3f) {-5000.0f, 5000.0f, 5000.0f};
+  //e2->position = (struct vector3f) {-5000.0f, 5000.0f, 5000.0f};
+  e2->position = (struct vector3f) {0.0f, 800000.0f, 0.0f};
   //e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
   e2->pitch = 0.0f;
   e2->yaw = 0.0f;
