@@ -62,19 +62,20 @@ struct particle_system *particle_system_new(size_t numParticles) {
 
   s->collideFloor = 0;
   s->collideWalls = 0;
+  s->isCollisionEnabled = 1;
 
   s->num_attractors = 3;
   s->attractors = malloc(sizeof(*s->attractors) * 4 * s->num_attractors);
 
-  s->isCollisionEnabled = 1;
-
-//  _configure_attractor(s->attractors, 0, 0, -50000, 0, 0);
-//  _configure_attractor(s->attractors, 1, 1000000, 50000, 0, 3);
+  //_configure_attractor(s->attractors, 0, 0, -50000, 0, 0.1);
+//  _configure_attractor(s->attractors, 2, 100000, 50000, 0, 0.3);
 //  _configure_attractor(s->attractors, 2, 2000000, 50000, 0, -0.3);
-  _configure_attractor(s->attractors, 0, 0, 0, 50000, -4.0);
-  _configure_attractor(s->attractors, 1, 50000, -50000, -500, 2.2);
-  _configure_attractor(s->attractors, 2, -5000, 50000, 8000, 4.1);
-  _configure_attractor(s->attractors, 3, 5000000, 0, 500000, -0.01);
+  //_configure_attractor(s->attractors, 1, 0, 0, 0, -2);
+//_configure_attractor(s->attractors, 0, 0, 0, 0, 80);
+//  _configure_attractor(s->attractors, 1, 0, 0, 50000, -1.0);
+  _configure_attractor(s->attractors, 0, 50000, -50000, -50000, 8.52);
+//  _configure_attractor(s->attractors, 1, -5000, 50000, 8000, 4.1);
+//  _configure_attractor(s->attractors, 2, 50000, 0, 5000, -1);
 
   return s;
 }
@@ -111,7 +112,12 @@ static void _update_emitters(struct vector *elist, double t, double dt) {
   }
 }
 
-static int _update_particles(struct particle_system *s, struct vector *plist, double t, double dt) {
+static int _update_particles(
+  struct particle_system *s,
+  struct vector *plist,
+  double t,
+  double dt
+) {
   int active = 0;
 
   for (size_t i=0; i<plist->size; ++i) {
@@ -139,6 +145,7 @@ static int _update_particles(struct particle_system *s, struct vector *plist, do
   return active;
 }
 
+//god bless gg
 static inline float fisqrt(float number) {
 	long i;
 	float x2, y;
@@ -161,7 +168,7 @@ static inline void _update_particle_pos(
   double t,
   double dt
 ) {
-  static int trip = 0;
+  static int trip = 1;
   double force = 0;
 
 //  double airforce = 1;//0.985;
@@ -220,8 +227,8 @@ static inline void _update_particle_pos(
 //  p->velocity[2] += 0-p->pos[2] * 0.000199;
 
   static const double EULER_CONST = 2.71828182845904523536;
-  static const double G = 0.0003;
-  static const double factor=3/2;
+  static const double G = 0.003;
+  static const double factor=3.0f/2.0f;
 
   for (size_t i=0; i<s->num_attractors; ++i) {
     size_t idx = i*4;
@@ -237,8 +244,9 @@ static inline void _update_particle_pos(
     double magnitude = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]+dv[2];
 
     //magnitude = fisqrt(magnitude);//1.0f / sqrt(magnitude);
-    //650
+    //650mspf @ 200k
     magnitude = 1.0f/ sqrt(magnitude);
+    //550mspf @ 200k
 
     double dvn[3] = {
       dv[0] * magnitude,
@@ -255,9 +263,9 @@ static inline void _update_particle_pos(
 
   //vector3f_normalise(p->velocity);
 
-  p->pos[0] += p->velocity[0];// * dt;
-  p->pos[1] += p->velocity[1];// * dt;
-  p->pos[2] += p->velocity[2];// * dt;
+  p->pos[0] += p->velocity[0] * dt;
+  p->pos[1] += p->velocity[1] * dt;
+  p->pos[2] += p->velocity[2] * dt;
 
   //double e = sqrt(p->velocity[0]*p->velocity[0] + p->velocity[1]*p->velocity[1] + p->velocity[2]*p->velocity[2]);
 

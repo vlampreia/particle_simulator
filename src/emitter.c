@@ -62,8 +62,8 @@ void emitter_fire(struct emitter *e, int count) {
 }
 
 void emitter_step(struct emitter *e, double t) {
+  //if (t - e->last_fire_t > e->frequency) {
   if (t - e->last_fire_t > e->frequency) {
-  //if (t - e->last_fire_t + _clampedRand(0,2*t) > e->frequency) {
     emitter_fire(e, e->emission_count);
     //emitter_fire(e, 55);
     e->last_fire_t = t;
@@ -75,9 +75,23 @@ void emitter_set_particle_pool(struct emitter *e, struct vector *pool) {
   e->particle_pool = pool;
 }
 
-static double myRandom(void)
+static double myRandom(int max)
 {
-  return ((-RAND_MAX/2 + rand())/(double)RAND_MAX/2);
+  return rand()/(double)RAND_MAX;
+//  if (max == RAND_MAX+1) {
+//    return rand();
+//  }
+//
+//  long limit = (RAND_MAX/max)*max;
+//  int r;
+//  while (1) {
+//    r = rand();
+//    if (r < limit) break;
+//  }
+//  
+//  return r % max;
+  //return rand()/(double)RAND_MAX;
+  //return ((-RAND_MAX/2 + rand())/(double)RAND_MAX/2);
 }
 
 static void _init_particle(struct emitter *e, struct particle *p) {
@@ -86,8 +100,12 @@ static void _init_particle(struct emitter *e, struct particle *p) {
   p->pos[1] = e->position.y;
   p->pos[2] = e->position.z;
 
-  double pmod = (e->pitch + (e->vert_angle  * myRandom())) * DEG_TO_RAD;
-  double ymod = (e->yaw   + (e->horiz_angle * myRandom())) * DEG_TO_RAD;
+  double pmod = e->pitch + myRandom(1000)*(e->vert_angle - e->pitch);
+  double ymod = e->yaw   + myRandom(1000)*(e->horiz_angle - e->yaw);
+  pmod *= DEG_TO_RAD;
+  ymod *= DEG_TO_RAD;
+//  double pmod = (e->pitch + (e->vert_angle  * myRandom())) * DEG_TO_RAD;
+//  double ymod = (e->yaw   + (e->horiz_angle * myRandom())) * DEG_TO_RAD;
 
   p->velocity[0] = -cos(pmod) * sin(ymod);
   p->velocity[1] =  sin(pmod);

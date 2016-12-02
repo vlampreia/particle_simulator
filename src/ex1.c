@@ -506,6 +506,11 @@ static void keyboard(unsigned char key, int x, int y)
 
     case 113: _draw_attractors = !_draw_attractors; break;
 
+    case 46: {
+      double step = 1.0f; particle_system_step(_pSystem, t, step); t+= step; break;
+
+             }
+
     default: break;
   }
 
@@ -661,22 +666,24 @@ static void init_psys(void) {
   e2->base_particle->mass = 0.8f;
   e2->base_particle->bounce = 0.9f;
   e2->base_particle->size = 3.0f;
-  e2->base_particle->tod_usec = 5000;
+  e2->base_particle->tod_usec = 50;
   e2->base_particle->tod_max = e2->base_particle->tod_usec;
   //e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->base_particle->collision_chaos = 0.01f;
-  e2->frequency = 2;
+  e2->frequency = 1;
   e2->emission_count = 50000;
   particle_system_add_emitter(_pSystem, e2);
 
   e2 = emitter_new(NULL);
-  e2->position = (struct vector3f) {-5000.0f, 5000.0f, 5000.0f};
+  //e2->position = (struct vector3f) {-5000.0f, 5000.0f, 5000.0f};
+  e2->position = (struct vector3f) {0,0.1,0};
   //e2->position = (struct vector3f) {0.0f, 800000.0f, 0.0f};
   //e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
   e2->pitch = 0.0f;
   e2->yaw = 0.0f;
-  e2->horiz_angle = 720.0f;
-  e2->vert_angle = 720.0f;
+//  e2->horiz_angle = 720.0f;
+  e2->vert_angle = 360.0f;
+  e2->horiz_angle = 360.0f;
   //vector3f_normalise(&e2->orientation);
   e2->force = 900;//60.01f;
   e2->base_particle = particle_new();
