@@ -46,6 +46,6 @@ void                    particle_system_destroy (struct particle_system **s);
 
 void  particle_system_add_emitter (struct particle_system *s, struct emitter *e);
 
-void  particle_system_step  (struct particle_system *s, double t, double dt);
+int  particle_system_step  (struct particle_system *s, double t, double dt);
 
 #endif

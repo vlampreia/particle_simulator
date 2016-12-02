@@ -17,6 +17,8 @@
 
 //------------------------------------------------------------------------------
 
+#define NSIGN(x) ((x > 0) - (x < 0))
+
 static double _avg(double a[], size_t n) {
   double s = 0;
   for (size_t i=0; i<n; ++i) {
@@ -62,6 +64,7 @@ static int _drawWalls = 0;
 static int _drawFloor = 0;
 static int _draw_ui = 1;
 static int _do_phys = 1;
+static int _draw_attractors = 0;
 
 static char _gui_buffer[256];
 
@@ -229,17 +232,21 @@ static void _step_simulation(void) {
   _statistics.lastSimDuration = _avg(_statistics.lastSimDurations, _statistics.maxidx);
   _statistics.lastSimTime = newTime;
 
+  int active = 0;
   if (_do_phys) {
     accumulator += dt;
 
     //TODO: FIX TIMESTEP -- is idlefunc doing some dt shit??
     while (accumulator >= dt) {
-      particle_system_step(_pSystem, t, 1);//1.0);
+      active = particle_system_step(_pSystem, t, 1);//1.0);
       accumulator -= dt;
       t += dt;
     }
   }
   
+
+  snprintf(_gui_buffer, 256, "Particles: %d", active);
+  gui_element_set_str(txt_pcount, _gui_buffer, 1);
 
 //  clock_t t = clock() / (CLOCKS_PER_SEC / 1000);
 //  float dt = t - gt;
@@ -295,8 +302,8 @@ static inline void render_particles(void) {
 //    }
 //  glEnd();
 
-  snprintf(_gui_buffer, 256, "Particles: %d", active);
-  gui_element_set_str(txt_pcount, _gui_buffer, 1);
+  //snprintf(_gui_buffer, 256, "Particles: %d", active);
+  //gui_element_set_str(txt_pcount, _gui_buffer, 1);
 }
 
 //------------------------------------------------------------------------------
@@ -340,21 +347,19 @@ static void _render(void)
   double x,y,z;
   GLfloat _z;
 
-  if (_drawFloor) {
+
+  if (_ctrl_edit) {
     glCallList(floorList);
+    glGetDoublev(GL_MODELVIEW_MATRIX, _modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, _projection);
+    glGetIntegerv(GL_VIEWPORT, _viewport);
 
-    if (_ctrl_edit) {
-      glGetDoublev(GL_MODELVIEW_MATRIX, _modelview);
-      glGetDoublev(GL_PROJECTION_MATRIX, _projection);
-      glGetIntegerv(GL_VIEWPORT, _viewport);
-
-      glReadPixels(_mouse_x, _viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT, GL_FLOAT, &_z);
-      gluUnProject(
-        _mouse_x, _viewport[3] - _mouse_y, _z,
-        _modelview, _projection, _viewport,
-        &x, &y, &z
-      );
-    }
+    glReadPixels(_mouse_x, _viewport[3]-_mouse_y,1,1,GL_DEPTH_COMPONENT, GL_FLOAT, &_z);
+    gluUnProject(
+      _mouse_x, _viewport[3] - _mouse_y, _z,
+      _modelview, _projection, _viewport,
+      &x, &y, &z
+    );
   }
 
   if (_drawFloor) glCallList(gradFloorList);
@@ -423,18 +428,23 @@ static void _render(void)
 
   render_particles();
 
-  glPointSize(10);
-  glBegin(GL_POINTS);
-  for (size_t i=0; i<_pSystem->num_attractors; ++i) {
-    size_t idx = i*4;
-    glColor3f(1-_pSystem->attractors[idx + 3]/10,0,1.0);
-    glVertex3f(
-      _pSystem->attractors[idx + 0],
-      _pSystem->attractors[idx + 1],
-      _pSystem->attractors[idx + 2]
-    );
+  if (_draw_attractors) {
+    for (size_t i=0; i<_pSystem->num_attractors; ++i) {
+      size_t idx = i*4;
+      double m = _pSystem->attractors[idx + 3];
+      double c = 1-m/10;
+      if (m > 0) glColor3f(1-m/10,0,1.0);
+      else       glColor3f(0.0, 0, 1-m/10.0);
+      glPointSize(10 * NSIGN(m) * m);
+      glBegin(GL_POINTS);
+        glVertex3f(
+          _pSystem->attractors[idx + 0],
+          _pSystem->attractors[idx + 1],
+          _pSystem->attractors[idx + 2]
+        );
+      glEnd();
+    }
   }
-  glEnd();
 
   if (_drawWalls) {
     glCallList(wallsList);
@@ -492,7 +502,9 @@ static void keyboard(unsigned char key, int x, int y)
     case 117: _draw_ui = !_draw_ui; break;
     case 101: _toggleEdit(); break;
 
-    case 32: _do_phys = !_do_phys;
+    case 32: _do_phys = !_do_phys; break;
+
+    case 113: _draw_attractors = !_draw_attractors; break;
 
     default: break;
   }
@@ -583,7 +595,7 @@ static void init_psys(void) {
     e->base_particle = particle_new();
     initialise_particle(e->base_particle);
     e->position = (struct vector3f) {-500.0f*i, 500.0f, i*500.0f};
-    e->base_particle->color[0] = 2550;
+    e->base_particle->color[0] = 255;
     e->base_particle->color[1] = 40 * i;
     e->base_particle->color[2] = 20 * i;
     e->base_particle->color[3] = 255;
@@ -797,23 +809,28 @@ static void makeAxes(void) {
 }
 
 static void makeCrosshair() {
+  int width = 100000;
   crosshairList = glGenLists(1);
   glNewList(crosshairList, GL_COMPILE);
     glLineWidth(1.0f);
     glBegin(GL_LINES);
       glColor4f(0.5f, 0.5f, 0.5f, 0.0f);
-      glVertex3f(-10000.0f, 0.0f,  0.0f);
-      glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
-      glVertex3f( 0.0f,     0.0f,  0.0f);
-      glVertex3f( 0.0f,     0.0f,  0.0f);
-      glColor4f(0.5f, 0.5f, 0.5f, 0.0f);
-      glVertex3f( 10000.0f, 0.0f,  0.0f);
+      glVertex3f(-width, 0.0f,  0.0f);
 
       glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
       glVertex3f( 0.0f,     0.0f,  0.0f);
+      glVertex3f( 0.0f,     0.0f,  0.0f);
+
       glColor4f(0.5f, 0.5f, 0.5f, 0.0f);
-      glVertex3f( 0.0f,     0.0f, -10000.0f);
-      glVertex3f( 0.0f,     0.0f,  10000.0f);
+      glVertex3f( width, 0.0f,  0.0f);
+
+      glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
+      glVertex3f( 0.0f,     0.0f,  0.0f);
+
+      glColor4f(0.5f, 0.5f, 0.5f, 0.0f);
+      glVertex3f( 0.0f,     0.0f, -width);
+      glVertex3f( 0.0f,     0.0f,  width);
+
       glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
       glVertex3f( 0.0f,     0.0f,  0.0f);
     glEnd();
@@ -862,18 +879,26 @@ static void makeWalls() {
 }
 
 static void makeFloor() {
-  int width = 400;
-  int depth = 400;
+  int width = 1000000;
+  int depth = 1000000;
   floorList = glGenLists(1);
   glNewList(floorList, GL_COMPILE);
+    glColor4ub(0,0,0,0);
     glBegin(GL_TRIANGLES);
-    glColor3ub(150,150,150);
       glVertex3f( width, 0.0f,  depth);
       glVertex3f(-width, 0.0f,  depth);
       glVertex3f(-width, 0.0f, -depth);
       glVertex3f(-width, 0.0f, -depth);
       glVertex3f( width, 0.0f,  depth);
       glVertex3f( width, 0.0f, -depth);
+    glEnd();
+
+    glColor4ub(200, 200, 200, 200);
+    glBegin(GL_LINE_LOOP);
+      glVertex3f(-width, 0.0f, -depth);
+      glVertex3f( width, 0.0f, -depth);
+      glVertex3f( width, 0.0f,  depth);
+      glVertex3f(-width, 0.0f,  depth);
     glEnd();
   glEndList();
 }

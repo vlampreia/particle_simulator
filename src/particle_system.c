@@ -10,7 +10,7 @@
 
 
 static void _update_emitters(struct vector *elist, double t, double dt);
-static void _update_particles(struct particle_system *s, struct vector *plist, double t, double dt);
+static int _update_particles(struct particle_system *s, struct vector *plist, double t, double dt);
 static inline void _update_particle_pos(struct particle_system *s, struct particle *p, double t, double dt);
 static inline void _update_particle_collision(struct particle_system *s, struct particle *p, double t, double dt);
 static double myRandom(void)
@@ -52,7 +52,7 @@ struct particle_system *particle_system_new(size_t numParticles) {
     struct particle *p = particle_new();
     p->pos_idx = i;
     vector_add(s->particles, p);
-    s->particle_col[i] = (struct vertexb){255,0,0,255};
+    s->particle_col[i] = (struct vertexb){0,0,0,0};
     s->particle_idx[i] = i;
   }
 
@@ -66,7 +66,7 @@ struct particle_system *particle_system_new(size_t numParticles) {
   s->num_attractors = 3;
   s->attractors = malloc(sizeof(*s->attractors) * 4 * s->num_attractors);
 
-  s->isCollisionEnabled = 0;
+  s->isCollisionEnabled = 1;
 
 //  _configure_attractor(s->attractors, 0, 0, -50000, 0, 0);
 //  _configure_attractor(s->attractors, 1, 1000000, 50000, 0, 3);
@@ -95,9 +95,9 @@ void particle_system_add_emitter(struct particle_system *s, struct emitter *e) {
 }
 
 
-void particle_system_step(struct particle_system *s, double t, double dt) {
+int particle_system_step(struct particle_system *s, double t, double dt) {
   _update_emitters(s->emitters, t, dt);
-  _update_particles(s, s->particles, t, dt);
+  return _update_particles(s, s->particles, t, dt);
 }
 
 
@@ -111,7 +111,9 @@ static void _update_emitters(struct vector *elist, double t, double dt) {
   }
 }
 
-static void _update_particles(struct particle_system *s, struct vector *plist, double t, double dt) {
+static int _update_particles(struct particle_system *s, struct vector *plist, double t, double dt) {
+  int active = 0;
+
   for (size_t i=0; i<plist->size; ++i) {
     struct particle *p = plist->elements[i];
     if (!p->active) continue;
@@ -122,6 +124,7 @@ static void _update_particles(struct particle_system *s, struct vector *plist, d
     p->tod_usec -= dt;
 
     _update_particle_pos(s, plist->elements[i], t, dt);
+    ++active;
   }
 
   if (s->isCollisionEnabled) {
@@ -132,6 +135,24 @@ static void _update_particles(struct particle_system *s, struct vector *plist, d
       _update_particle_collision(s, plist->elements[i], t, dt);
     }
   }
+
+  return active;
+}
+
+static inline float fisqrt(float number) {
+	long i;
+	float x2, y;
+	const float threehalfs = 1.5F;
+
+	x2 = number * 0.5F;
+	y  = number;
+	i  = * ( long * ) &y;                       // evil floating point bit level hacking
+	i  = 0x5f3759df - ( i >> 1 );               // what the fuck? 
+	y  = * ( float * ) &i;
+	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
+//	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+	return y;
 }
 
 static inline void _update_particle_pos(
@@ -199,7 +220,7 @@ static inline void _update_particle_pos(
 //  p->velocity[2] += 0-p->pos[2] * 0.000199;
 
   static const double EULER_CONST = 2.71828182845904523536;
-  static const double G = 0.0005;
+  static const double G = 0.0003;
   static const double factor=3/2;
 
   for (size_t i=0; i<s->num_attractors; ++i) {
@@ -213,12 +234,16 @@ static inline void _update_particle_pos(
       s->attractors[idx + 2] - p->pos[2]
     };
 
-    double magnitude = sqrt(dv[0]*dv[0] + dv[1]*dv[1] + dv[2]+dv[2]);
+    double magnitude = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]+dv[2];
+
+    //magnitude = fisqrt(magnitude);//1.0f / sqrt(magnitude);
+    //650
+    magnitude = 1.0f/ sqrt(magnitude);
 
     double dvn[3] = {
-      dv[0] / magnitude,
-      dv[1] / magnitude,
-      dv[2] / magnitude
+      dv[0] * magnitude,
+      dv[1] * magnitude,
+      dv[2] * magnitude
     };
 
     double e2 = EULER_CONST * EULER_CONST;
@@ -307,12 +332,12 @@ static inline void _update_particle_collision(struct particle_system *s, struct 
 //  }
 
   if (s->collideFloor) {
-    if (p->pos[1] <= 0.05f) {
+    if (p->pos[1] <= -10000.05f) {
       p->velocity[0] *= s->friction*p->bounce;
       p->velocity[2] *= s->friction*p->bounce;
 
-      if (p->pos[1] < 0.0f) {
-        p->pos[1] = 0.0f;
+      if (p->pos[1] < -10000.0f) {
+        p->pos[1] = -10000.0f;
         p->velocity[1] = (-p->velocity[1] * p->bounce);// * _clampedRand(1.0f-p->collision_chaos, 1.0f) * dt;
         
   //      p->velocity[0] += 1/ (p->bounce * p->velocity[1]);
