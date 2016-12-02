@@ -66,13 +66,15 @@ struct particle_system *particle_system_new(size_t numParticles) {
   s->num_attractors = 3;
   s->attractors = malloc(sizeof(*s->attractors) * 4 * s->num_attractors);
 
-  _configure_attractor(s->attractors, 0, 0, -50000, 0, 0);
-  _configure_attractor(s->attractors, 1, 1000000, 50000, 0, 3);
-  _configure_attractor(s->attractors, 2, 2000000, 50000, 0, -0.3);
- // _configure_attractor(s->attractors, 0, 0, 0, 50000, -4.0);
- // _configure_attractor(s->attractors, 1, 50000, -50000, -500, 2.2);
- // _configure_attractor(s->attractors, 2, -5000, 50000, 8000, 4.1);
- // _configure_attractor(s->attractors, 3, 5000000, 0, 500000, -0.01);
+  s->isCollisionEnabled = 0;
+
+//  _configure_attractor(s->attractors, 0, 0, -50000, 0, 0);
+//  _configure_attractor(s->attractors, 1, 1000000, 50000, 0, 3);
+//  _configure_attractor(s->attractors, 2, 2000000, 50000, 0, -0.3);
+  _configure_attractor(s->attractors, 0, 0, 0, 50000, -4.0);
+  _configure_attractor(s->attractors, 1, 50000, -50000, -500, 2.2);
+  _configure_attractor(s->attractors, 2, -5000, 50000, 8000, 4.1);
+  _configure_attractor(s->attractors, 3, 5000000, 0, 500000, -0.01);
 
   return s;
 }
@@ -122,11 +124,13 @@ static void _update_particles(struct particle_system *s, struct vector *plist, d
     _update_particle_pos(s, plist->elements[i], t, dt);
   }
 
-  for (size_t i=0; i<plist->size; ++i) {
-    struct particle *p = plist->elements[i];
-    if (!p->active) continue;
+  if (s->isCollisionEnabled) {
+    for (size_t i=0; i<plist->size; ++i) {
+      struct particle *p = plist->elements[i];
+      if (!p->active) continue;
 
-    _update_particle_collision(s, plist->elements[i], t, dt);
+      _update_particle_collision(s, plist->elements[i], t, dt);
+    }
   }
 }
 

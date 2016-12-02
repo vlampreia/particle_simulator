@@ -38,8 +38,8 @@ static double myRandom(void)
 
 //#define NUM_PARTICLES 300000
 #define DEG_TO_RAD 0.017453293
-//#define NUM_PARTICLES 1000000
-#define NUM_PARTICLES 300000
+#define NUM_PARTICLES 1000000
+//#define NUM_PARTICLES 300000
 #define NUM_EMITTERS 2
 #define NSEC_DIV 1000000 / 1000
 
@@ -658,8 +658,8 @@ static void init_psys(void) {
   particle_system_add_emitter(_pSystem, e2);
 
   e2 = emitter_new(NULL);
-  //e2->position = (struct vector3f) {-5000.0f, 5000.0f, 5000.0f};
-  e2->position = (struct vector3f) {0.0f, 800000.0f, 0.0f};
+  e2->position = (struct vector3f) {-5000.0f, 5000.0f, 5000.0f};
+  //e2->position = (struct vector3f) {0.0f, 800000.0f, 0.0f};
   //e2->orientation = (struct vector3f) {1.0f, 0.5f, 1.0f};
   e2->pitch = 0.0f;
   e2->yaw = 0.0f;
@@ -695,36 +695,37 @@ static void init_gui(void) {
   _guiManager = gui_manager_new();
   gui_manager_set_dimensions(_guiManager, _window_width, _window_height, 200, 10);
 
-  txt_fps    = gui_manager_new_element(_guiManager, "FPS: 1000", NULL);
-  txt_mspf   = gui_manager_new_element(_guiManager, "MSPF: 1000", NULL);
-  txt_sfps   = gui_manager_new_element(_guiManager, "SIM FPS: 1000", NULL);
-  txt_smspf  = gui_manager_new_element(_guiManager, "SIM MSPF: 1000", NULL);
-  txt_pcount = gui_manager_new_element(_guiManager,"Particles: 0", NULL);
+  txt_fps    = gui_manager_new_element(_guiManager, "FPS: 1000",      0,0, NULL);
+  txt_mspf   = gui_manager_new_element(_guiManager, "MSPF: 1000",     0,0, NULL);
+  txt_sfps   = gui_manager_new_element(_guiManager, "SIM FPS: 1000",  0,0, NULL);
+  txt_smspf  = gui_manager_new_element(_guiManager, "SIM MSPF: 1000", 0,0, NULL);
+  txt_pcount = gui_manager_new_element(_guiManager, "Particles: 0",   0,0, NULL);
 
-  gui_manager_new_element(_guiManager,NULL,NULL);
-  txt_grav = gui_manager_new_element(_guiManager, "Gravity 0.0000", NULL);
-  btn_decG = gui_manager_new_element(_guiManager, "-", _cb_decGrav);
-  btn_incG = gui_manager_new_element(_guiManager, "+", _cb_incGrav);
-  txt_airDens = gui_manager_new_element(_guiManager, "air: 0.0000", NULL);
-  txt_friction = gui_manager_new_element(_guiManager, "friction: 0.0000", NULL);
+  gui_manager_new_element(_guiManager,NULL,0,0,NULL);
+  txt_grav     = gui_manager_new_element(_guiManager, "Gravity 0.0000",   0,0, NULL);
+  btn_decG     = gui_manager_new_element(_guiManager, "-",                0,0, _cb_decGrav);
+  btn_incG     = gui_manager_new_element(_guiManager, "+",                0,0, _cb_incGrav);
+  txt_airDens  = gui_manager_new_element(_guiManager, "air: 0.0000",      0,0, NULL);
+  txt_friction = gui_manager_new_element(_guiManager, "friction: 0.0000", 0,0, NULL);
 
-  gui_manager_new_element(_guiManager,NULL,NULL);
-  gui_manager_new_element(_guiManager,NULL,NULL);
-  txt_ctrlMode  = gui_manager_new_element(_guiManager, "Emitter: 0", NULL);
-  btn_autoFire  = gui_manager_new_element(_guiManager, "Auto Emit", NULL);
-  btn_fire      = gui_manager_new_element(_guiManager, "Emit", myCb);
-  txt_rate      = gui_manager_new_element(_guiManager, "Rate: 1000", NULL);
-  btn_decRate   = gui_manager_new_element(_guiManager, "-", NULL);
-  btn_incRate   = gui_manager_new_element(_guiManager, "+", NULL);
-  gui_manager_new_element(_guiManager,NULL,NULL);
-  btn_type      = gui_manager_new_element(_guiManager, "GL_POINT", NULL);
-  txt_bounce    = gui_manager_new_element(_guiManager, "Bounce: 0.000", NULL);
-  btn_decBounce = gui_manager_new_element(_guiManager, "-", NULL);
-  btn_incBounce = gui_manager_new_element(_guiManager, "+", NULL);
-  txt_mass      = gui_manager_new_element(_guiManager, "Mass: 1.00", NULL);
-  btn_decMass   = gui_manager_new_element(_guiManager, "-", NULL);
-  btn_incMass   = gui_manager_new_element(_guiManager, "+", NULL);
-  txt_force     = gui_manager_new_element(_guiManager, "Force: 000.0", NULL);
+  gui_manager_new_element(_guiManager,NULL,0,0,NULL);
+  gui_manager_new_element(_guiManager,NULL,0,0,NULL);
+  txt_ctrlMode  = gui_manager_new_element(_guiManager, "Emitter: 0", 0,0, NULL);
+  btn_autoFire  = gui_manager_new_element(_guiManager, "Auto Emit",  0,0, NULL);
+  btn_fire      = gui_manager_new_element(_guiManager, "Emit",       0,0, myCb);
+  txt_rate      = gui_manager_new_element(_guiManager, "Rate: 1000", 0,0, NULL);
+  btn_decRate   = gui_manager_new_element(_guiManager, "-",          0,0, NULL);
+  btn_incRate   = gui_manager_new_element(_guiManager, "+",          0,0, NULL);
+
+  gui_manager_new_element(_guiManager,NULL,0,0,NULL);
+  btn_type      = gui_manager_new_element(_guiManager, "GL_POINT",      0,0, NULL);
+  txt_bounce    = gui_manager_new_element(_guiManager, "Bounce: 0.000", 0,0, NULL);
+  btn_decBounce = gui_manager_new_element(_guiManager, "-",             0,0, NULL);
+  btn_incBounce = gui_manager_new_element(_guiManager, "+",             0,0, NULL);
+  txt_mass      = gui_manager_new_element(_guiManager, "Mass: 1.00",    0,0, NULL);
+  btn_decMass   = gui_manager_new_element(_guiManager, "-",             0,0, NULL);
+  btn_incMass   = gui_manager_new_element(_guiManager, "+",             0,0, NULL);
+  txt_force     = gui_manager_new_element(_guiManager, "Force: 000.0",  0,0, NULL);
 }
 
 //------------------------------------------------------------------------------

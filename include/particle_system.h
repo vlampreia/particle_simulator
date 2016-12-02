@@ -35,6 +35,9 @@ struct particle_system {
   size_t num_attractors;
   double *attractors;
   //double attractors[3][4];
+  
+
+  int isCollisionEnabled;
 };
 
 

@@ -25,12 +25,14 @@ struct gui_element *gui_element_new(
   if (height <= 0) e->height = 20;
   else e->height = height;
 
-  e->str = NULL;
-  e->str = malloc(256);
   if (str != NULL) {
-    //e->str = malloc(sizeof(str));
-    strcpy(e->str, str);
-    e->str[255] = '\0';
+    e->str = NULL;
+    e->str = malloc(256);
+    if (str != NULL) {
+      //e->str = malloc(sizeof(str));
+      strcpy(e->str, str);
+      e->str[255] = '\0';
+    }
   }
 
   e->callback = callback;
@@ -91,15 +93,22 @@ void gui_element_draw(struct gui_element *e) {
   else glColor4f(0.4f, 0.55f, 0.9f, 0.9f);
 
   glCallList(e->compiled_list);
+
+  glPushMatrix();
+  static const int offset = 8;
+  glTranslatef(e->x + offset, e->y + 6, 0);
+  //glScalef(1.0f/(152.38f), 1.0f/152.38f, 1.0f/152.38f);
+  glScalef(1.0f/15.0f,1.0f/15.0f,1.0f/15.0f);
+
   size_t i = 0;
-  int x_offset = 5;
-  glColor4ub(255, 0, 0, 255);
-  glRasterPos2i(e->x + x_offset, 5 + e->y);
-  while(e->str[i] != '\0' && x_offset < e->width - GUI_ELEMENT_CHAR_WIDTH) {
-    glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, e->str[i]);
-    ++i;
-    x_offset += GUI_ELEMENT_CHAR_WIDTH;
+  //int x_offset = 5;
+  glColor4ub(50, 50, 50, 255);
+  //glRasterPos2i(e->x + x_offset, 5 + e->y);
+  for (char *c = e->str; *c && i < e->width - offset; c++) {
+    glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, *c);
+    i += offset;
   }
+  glPopMatrix();
 }
 
 static void _compile(struct gui_element *e) {
