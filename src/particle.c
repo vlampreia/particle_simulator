@@ -1,30 +1,34 @@
 #include "particle.h"
 
 #include <stdlib.h>
-#include "vector3f.h"
 
-struct particle *particle_new(void) {
+#include "vertex.h"
+#include "emitter.h"
+
+struct particle *particle_new(struct emitter *emitter, size_t idx) {
   struct particle *p = malloc(sizeof(*p));
   if (!p) return NULL;
 
-  p->pos[0] = 0.0f;
-  p->pos[1] = 0.0f;
-  p->pos[2] = 0.0f;
-  p->acceleration[0] = 0.0f;
-  p->acceleration[1] = 0.0f;
-  p->acceleration[2] = 0.0f;
-  p->velocity[0] = 0.0f;
-  p->velocity[1] = 0.0f;
-  p->velocity[2] = 0.0f;
-  p->color[0] = 0;
-  p->color[1] = 0;
-  p->color[2] = 0;
-  p->color[3] = 255;
+//  p->pos[0] = 0.0f;
+//  p->pos[1] = 0.0f;
+//  p->pos[2] = 0.0f;
+  p->acceleration.x = 0.0f;
+  p->acceleration.y = 0.0f;
+  p->acceleration.z = 0.0f;
+  p->velocity.x = 0.0f;
+  p->velocity.y = 0.0f;
+  p->velocity.z = 0.0f;
+//  p->color[0] = 0;
+//  p->color[1] = 0;
+//  p->color[2] = 0;
+//  p->color[3] = 255;
 
-  p->base_color[0] = p->color[0];
-  p->base_color[1] = p->color[1];
-  p->base_color[2] = p->color[2];
-  p->base_color[3] = p->color[3];
+//  p->base_color[0] = p->color[0];
+//  p->base_color[1] = p->color[1];
+//  p->base_color[2] = p->color[2];
+//  p->base_color[3] = p->color[3];
+
+  p->emitter = emitter;
 
 
   //p->pos = (struct vector3f) {0.0f, 0.0f, 0.0f};
@@ -46,6 +50,8 @@ struct particle *particle_new(void) {
 
   p->bounce = 0.0f;
 
+  p->pos_idx = idx;
+
   return p;
 }
 
@@ -57,20 +63,20 @@ void particle_delete(struct particle **p) {
 }
 
 void particle_copy(struct particle *s, struct particle *t) {
-  GLfloat_copy(s->pos, t->pos);
-  GLfloat_copy(s->acceleration, t->acceleration);
-  GLfloat_copy(s->velocity, t->velocity);
-  t->color[0] = s->color[0];
-  t->color[1] = s->color[1];
-  t->color[2] = s->color[2];
-  t->color[3] = s->color[3];
+  //GLfloat_copy(s->pos, t->pos);
+  vertex_copy(&s->acceleration, &t->acceleration);
+  vertex_copy(&s->velocity,     &t->velocity);
+//  t->color[0] = s->color[0];
+//  t->color[1] = s->color[1];
+//  t->color[2] = s->color[2];
+//  t->color[3] = s->color[3];
 
   t->size = s->size;
 
-  t->base_color[0] = s->base_color[0];
-  t->base_color[1] = s->base_color[1];
-  t->base_color[2] = s->base_color[2];
-  t->base_color[3] = s->base_color[3];
+  t->base_color.r = s->base_color.r;
+  t->base_color.g = s->base_color.g;
+  t->base_color.b = s->base_color.r;
+  t->base_color.a = s->base_color.r;
 
   //vector3f_copy(&s->pos, &t->pos);
 

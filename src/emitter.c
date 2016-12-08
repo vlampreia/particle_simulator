@@ -4,7 +4,7 @@
 #include <math.h>
 
 #include "particle.h"
-#include "vector3f.h"
+#include "particle_system.h"
 
 #define DEG_TO_RAD 0.017453293
 
@@ -18,7 +18,7 @@ struct emitter *emitter_new(struct vector *particle_pool) {
   struct emitter *e = malloc(sizeof(*e));
   if (!e) return NULL;
 
-  e->position = (struct vector3f) {0.0f, 0.0f, 0.0f};
+  e->position = (struct vertex) {0.0f, 0.0f, 0.0f};
 
   e->pitch = 0.0f;
   e->yaw = 0.0f;
@@ -75,9 +75,21 @@ void emitter_set_particle_pool(struct emitter *e, struct vector *pool) {
   e->particle_pool = pool;
 }
 
-static double myRandom(int max)
+static long myRandom(long max)
 {
-  return rand()/(double)RAND_MAX;
+  unsigned long
+    num_bins = (unsigned long) max + 1,
+    num_rand = (unsigned long) RAND_MAX + 1,
+    bin_size = num_rand / num_bins,
+    defect = num_rand % num_bins;
+
+  long x;
+  do {
+    x = random();
+  } while (num_rand - defect <= (unsigned long)x);
+
+  return x/bin_size;
+  //return rand()/(double)RAND_MAX;
 //  if (max == RAND_MAX+1) {
 //    return rand();
 //  }
@@ -96,27 +108,28 @@ static double myRandom(int max)
 
 static void _init_particle(struct emitter *e, struct particle *p) {
   particle_copy(e->base_particle, p);
-  p->pos[0] = e->position.x;
-  p->pos[1] = e->position.y;
-  p->pos[2] = e->position.z;
+  particle_system_set_particle_pos(e->psystem, p, e->position);
 
-  double pmod = e->pitch + myRandom(1000)*(e->vert_angle - e->pitch);
-  double ymod = e->yaw   + myRandom(1000)*(e->horiz_angle - e->yaw);
+  double pmod = e->pitch + (myRandom(RAND_MAX)/(double)RAND_MAX) * e->vert_angle;
+  double ymod = e->yaw   + (myRandom(RAND_MAX)/(double)RAND_MAX) * e->horiz_angle;
   pmod *= DEG_TO_RAD;
   ymod *= DEG_TO_RAD;
 //  double pmod = (e->pitch + (e->vert_angle  * myRandom())) * DEG_TO_RAD;
 //  double ymod = (e->yaw   + (e->horiz_angle * myRandom())) * DEG_TO_RAD;
 
-  p->velocity[0] = -cos(pmod) * sin(ymod);
-  p->velocity[1] =  sin(pmod);
-  p->velocity[2] =  cos(pmod) * cos(ymod);
+  p->velocity.x = -cos(pmod) * sin(ymod);
+  p->velocity.y =  sin(pmod);
+  p->velocity.z =  cos(pmod) * cos(ymod);
 
-  GLfloat_normalise(p->velocity);
-  p->velocity[0] *= e->force;
-  p->velocity[1] *= e->force;
-  p->velocity[2] *= e->force;
+  vertex_normalise(&p->velocity);
+  p->velocity.x *= e->force;
+  p->velocity.y *= e->force;
+  p->velocity.z *= e->force;
 
-  p->base_color[0] = e->base_particle->color[0];
-  p->base_color[1] = e->base_particle->color[1];
-  p->base_color[2] = e->base_particle->color[2];
+  p->base_color.r = e->base_particle->base_color.r;
+  p->base_color.g = e->base_particle->base_color.g;
+  p->base_color.b = e->base_particle->base_color.b;
+  p->base_color.a = e->base_particle->base_color.a;
+
+  particle_system_set_particle_col(e->psystem, p, p->base_color);
 }

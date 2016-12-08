@@ -86,23 +86,23 @@ int gui_element_is_inside(struct gui_element *e, int x, int y) {
   );
 }
 
-void gui_element_draw(struct gui_element *e) {
+void gui_element_draw(struct gui_element *e, int top) {
   if (!e->str) return;
 
-  if (e->callback == NULL) glColor4f(0.7f, 0.7f, 0.7f, 0.7f);
-  else glColor4f(0.4f, 0.55f, 0.9f, 0.9f);
-
-  glCallList(e->compiled_list);
+  if (e->callback == NULL) glColor4f(0.7f, 0.7f, 0.7f, 0.3f);
+  else glColor4f(0.4f, 0.55f, 0.9f, 0.4f);
 
   glPushMatrix();
   static const int offset = 8;
-  glTranslatef(e->x + offset, e->y + 6, 0);
+  glTranslatef(e->x + offset, top + e->y + 6, 0);
+  glCallList(e->compiled_list);
+
   //glScalef(1.0f/(152.38f), 1.0f/152.38f, 1.0f/152.38f);
   glScalef(1.0f/15.0f,1.0f/15.0f,1.0f/15.0f);
 
   size_t i = 0;
   //int x_offset = 5;
-  glColor4ub(50, 50, 50, 255);
+  glColor4ub(255, 255, 255, 255);
   //glRasterPos2i(e->x + x_offset, 5 + e->y);
   for (char *c = e->str; *c && i < e->width - offset; c++) {
     glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, *c);
@@ -114,12 +114,17 @@ void gui_element_draw(struct gui_element *e) {
 static void _compile(struct gui_element *e) {
   e->compiled_list = glGenLists(1);
 
+  int offset = -7;
   glNewList(e->compiled_list, GL_COMPILE);
     glBegin(GL_QUADS);
-      glVertex2f(e->x,             e->y);
-      glVertex2f(e->x + e->width,  e->y);
-      glVertex2f(e->x + e->width,  e->y + e->height);
-      glVertex2f(e->x,             e->y + e->height);
+      glVertex2f(offset,             offset);
+      glVertex2f(e->width+offset,  offset);
+      glVertex2f(e->width+offset,  e->height+offset);
+      glVertex2f(offset,         e->height+offset);
+      //glVertex2f(e->x,             e->y);
+      //glVertex2f(e->x + e->width,  e->y);
+      //glVertex2f(e->x + e->width,  e->y + e->height);
+      //glVertex2f(e->x,             e->y + e->height);
     glEnd();
   glEndList();
 }

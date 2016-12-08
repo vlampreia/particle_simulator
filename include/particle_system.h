@@ -4,24 +4,15 @@
 #include <stdlib.h>
 #include <GL/glut.h>
 
+#include "vertex.h"
+
 struct particle;
 struct emitter;
-
-struct vertex {
-  GLfloat x,y,z;
-};
-
-struct vertexb {
-  GLubyte x;
-  GLubyte y;
-  GLubyte z;
-  GLubyte a;
-};
 
 struct particle_system {
   struct vector *particles;
   struct vertex *particle_pos;
-  struct vertexb *particle_col;
+  struct vertex_col *particle_col;
   GLubyte       *particle_idx;
   struct vector *emitters;
 
@@ -31,6 +22,7 @@ struct particle_system {
 
   int collideFloor;
   int collideWalls;
+  int trip;
 
   size_t num_attractors;
   double *attractors;
@@ -48,4 +40,11 @@ void  particle_system_add_emitter (struct particle_system *s, struct emitter *e)
 
 int  particle_system_step  (struct particle_system *s, double t, double dt);
 
+void particle_system_set_particle_pos(
+      struct particle_system *s, struct particle *p, struct vertex pos);
+
+void particle_system_set_particle_col(
+      struct particle_system *s, struct particle *p, struct vertex_col col);
+
+void particle_system_reset(struct particle_system *s);
 #endif

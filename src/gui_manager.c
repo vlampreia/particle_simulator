@@ -40,7 +40,7 @@ struct gui_element *gui_manager_new_element(
   struct gui_element *pe = NULL;
   if (m->elements->size > 0) pe = m->elements->elements[m->elements->size-1];
 
-  int x = m->left, y = m->top;
+  int x = m->left, y = 0;//m->top;
   if (pe != NULL) {
     if (pe->str == NULL) {
       x = m->left;
@@ -70,7 +70,7 @@ void gui_manager_draw(struct gui_manager *m) {
 
   for (size_t i=0; i<m->elements->size; ++i) {
     if (m->elements->elements[i]) {
-      gui_element_draw(m->elements->elements[i]);
+      gui_element_draw(m->elements->elements[i], m->top);
     }
   }
 

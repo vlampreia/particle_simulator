@@ -1,25 +1,29 @@
 #ifndef _PARTICLE_H__
 #define _PARTICLE_H__
 
-#include "vector3f.h"
+#include "vertex.h"
+
+struct emitter;
 
 struct particle {
-  GLfloat pos[3];
-  GLfloat acceleration[3];
-  GLfloat velocity[3];
+  //GLfloat pos[3];
+  struct vertex acceleration;
+  struct vertex velocity;
 
   double mass;
   double collision_chaos;
 
-  long tod_usec;
-  long tod_max;
+  double tod_usec;
+  double tod_max;
 
   double bounce;
 
   int active;
 
-  GLubyte color[4];
-  GLubyte base_color[4];
+  struct emitter *emitter;
+
+//  GLubyte color[4];
+  struct vertex_col base_color;
 
   size_t pos_idx;
 
@@ -27,7 +31,7 @@ struct particle {
 };
 
 
-struct particle *particle_new     (void);
+struct particle *particle_new     (struct emitter *emitter, size_t idx);
 void             particle_delete  (struct particle **p);
 
 void             particle_copy    (struct particle *s, struct particle *t);

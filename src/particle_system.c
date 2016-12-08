@@ -1,10 +1,11 @@
 #include "particle_system.h"
 
+#include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 
 #include "vector.h"
-#include "vector3f.h"
+#include "vertex.h"
 #include "particle.h"
 #include "emitter.h"
 
@@ -44,15 +45,15 @@ struct particle_system *particle_system_new(size_t numParticles) {
 
   s->particles = vector_new(numParticles, 0);
   s->particle_pos = malloc(sizeof(struct vertex) * numParticles);
-  s->particle_col = malloc(sizeof(struct vertexb) * numParticles);
+  s->particle_col = malloc(sizeof(struct vertex_col) * numParticles);
   s->particle_idx = malloc(sizeof(GLubyte) * numParticles);
   s->emitters = vector_new(10, 0);
 
   for (size_t i=0; i<numParticles; ++i) {
-    struct particle *p = particle_new();
-    p->pos_idx = i;
+    struct particle *p = particle_new(NULL, i);
     vector_add(s->particles, p);
-    s->particle_col[i] = (struct vertexb){0,0,0,0};
+    s->particle_pos[i] = (struct vertex) {0.0f, 0.0f, 0.0f};
+    s->particle_col[i] = (struct vertex_col){0,0,0,0};
     s->particle_idx[i] = i;
   }
 
@@ -64,17 +65,19 @@ struct particle_system *particle_system_new(size_t numParticles) {
   s->collideWalls = 0;
   s->isCollisionEnabled = 1;
 
-  s->num_attractors = 3;
+  s->num_attractors = 1;
   s->attractors = malloc(sizeof(*s->attractors) * 4 * s->num_attractors);
 
-  //_configure_attractor(s->attractors, 0, 0, -50000, 0, 0.1);
+  s->trip = 0;
+
+  _configure_attractor(s->attractors, 0, 1, -5000, 800 , 5000000000.5);
 //  _configure_attractor(s->attractors, 2, 100000, 50000, 0, 0.3);
 //  _configure_attractor(s->attractors, 2, 2000000, 50000, 0, -0.3);
   //_configure_attractor(s->attractors, 1, 0, 0, 0, -2);
-//_configure_attractor(s->attractors, 0, 0, 0, 0, 80);
-//  _configure_attractor(s->attractors, 1, 0, 0, 50000, -1.0);
-  _configure_attractor(s->attractors, 0, 50000, -50000, -50000, 8.52);
-//  _configure_attractor(s->attractors, 1, -5000, 50000, 8000, 4.1);
+  //_configure_attractor(s->attractors, 1, 0, 0, 0, 10);
+//  _configure_attractor(s->attractors, 1, -10000, 0, 500000, 0.5);
+//_configure_attractor(s->attractors, 0, 50000, -50000, -50000, 8.52);
+  //_configure_attractor(s->attractors, 2, -5000, 500, 8000, -0.4);
 //  _configure_attractor(s->attractors, 2, 50000, 0, 5000, -1);
 
   return s;
@@ -93,6 +96,7 @@ void particle_system_destroy(struct particle_system **s) {
 void particle_system_add_emitter(struct particle_system *s, struct emitter *e) {
   if (vector_add(s->emitters, e) == -1) return;
   emitter_set_particle_pool(e, s->particles);
+  e->psystem = s;
 }
 
 
@@ -168,8 +172,10 @@ static inline void _update_particle_pos(
   double t,
   double dt
 ) {
-  static int trip = 1;
-  double force = 0;
+  double force = -s->gravity;
+  const size_t pidx = p->pos_idx;
+  struct vertex *ppos = &s->particle_pos[pidx];
+  struct vertex_col *pcol = &s->particle_col[pidx];
 
 //  double airforce = 1;//0.985;
 //
@@ -227,51 +233,63 @@ static inline void _update_particle_pos(
 //  p->velocity[2] += 0-p->pos[2] * 0.000199;
 
   static const double EULER_CONST = 2.71828182845904523536;
+  double e2 = EULER_CONST * EULER_CONST;
+  //static const double G = 0.0000000000667408;
   static const double G = 0.003;
   static const double factor=3.0f/2.0f;
+
+  struct vertex na = {0,0,0};
 
   for (size_t i=0; i<s->num_attractors; ++i) {
     size_t idx = i*4;
 
     double mass = s->attractors[idx + 3];
 
-    double dv[3] = {
-      s->attractors[idx + 0] - p->pos[0],
-      s->attractors[idx + 1] - p->pos[1],
-      s->attractors[idx + 2] - p->pos[2]
+    struct vertex dv = (struct vertex) {
+      s->attractors[idx + 0] - ppos->x,
+      s->attractors[idx + 1] - ppos->y,
+      s->attractors[idx + 2] - ppos->z
     };
 
-    double magnitude = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]+dv[2];
+    double magnitude = sqrt(dv.x*dv.x + dv.y*dv.y + dv.z*dv.z);
 
     //magnitude = fisqrt(magnitude);//1.0f / sqrt(magnitude);
     //650mspf @ 200k
-    magnitude = 1.0f/ sqrt(magnitude);
     //550mspf @ 200k
 
-    double dvn[3] = {
-      dv[0] * magnitude,
-      dv[1] * magnitude,
-      dv[2] * magnitude
+    struct vertex dvn = (struct vertex) {
+      dv.x / magnitude,
+      dv.y / magnitude,
+      dv.z / magnitude
     };
 
-    double e2 = EULER_CONST * EULER_CONST;
-
-    p->velocity[0] += G * ((mass * dv[0])/pow((dvn[0]*dvn[0] + e2), factor));
-    p->velocity[1] += G * ((mass * dv[1])/pow((dvn[1]*dvn[1] + e2), factor));
-    p->velocity[2] += G * ((mass * dv[2])/pow((dvn[2]*dvn[2] + e2), factor));
+    na.x += ((mass * dv.x)/pow((magnitude*magnitude + e2), factor));
+    na.y += ((mass * dv.y)/pow((magnitude*magnitude + e2), factor));
+    na.z += ((mass * dv.z)/pow((magnitude*magnitude + e2), factor));
   }
 
+  na.x *= G;
+  na.y *= G;
+  na.z *= G;
   //vector3f_normalise(p->velocity);
 
-  p->pos[0] += p->velocity[0] * dt;
-  p->pos[1] += p->velocity[1] * dt;
-  p->pos[2] += p->velocity[2] * dt;
+  s->particle_pos[pidx].x += p->velocity.x * dt + 1.0f/2.0f * p->acceleration.x * dt*dt;
+  s->particle_pos[pidx].y += p->velocity.y * dt + 1.0f/2.0f * p->acceleration.y * dt*dt;
+  s->particle_pos[pidx].z += p->velocity.z * dt + 1.0f/2.0f * p->acceleration.z * dt*dt;
+
+  p->velocity.x += 1.0f/2.0f * (na.x + p->acceleration.x) * dt;
+  p->velocity.y += 1.0f/2.0f * (na.y + p->acceleration.y) * dt;
+  p->velocity.z += 1.0f/2.0f * (na.z + p->acceleration.z) * dt;
+
+  p->acceleration.x = na.x;
+  p->acceleration.y = na.y;
+  p->acceleration.z = na.z;
 
   //double e = sqrt(p->velocity[0]*p->velocity[0] + p->velocity[1]*p->velocity[1] + p->velocity[2]*p->velocity[2]);
 
-  double v = (p->tod_usec/(double)p->tod_max)*p->base_color[3];
+  double v = (p->tod_usec/(double)p->tod_max)*p->base_color.a;
   double vd = v/(double)255;
-  p->color[3] = v;
+  pcol->a = v;
 //  p->color[0] = p->base_color[0] * vd;
 //  p->color[1] = p->base_color[1] * vd;
 //  p->color[2] = p->base_color[2] * vd;
@@ -281,26 +299,55 @@ static inline void _update_particle_pos(
   //p->color[1] -= (v/255)/p->tod_max;//_mind(p->color[1], p->color[1]-v);
   //p->color[2] -= (v/255)/p->tod_max;//_mind(p->color[2], p->color[2]-v);
 
-  if (trip) {
-    p->color[0] += p->velocity[0]/255;
-    p->color[1] += p->velocity[1]/255;
-    p->color[2] += p->velocity[2]/255;
+  if (s->trip) {
+    double mg = sqrt(
+      p->velocity.x * p->velocity.x +
+      p->velocity.y * p->velocity.y +
+      p->velocity.z * p->velocity.z
+    );
+    double hue = (p->velocity.x/mg + p->velocity.y/mg + p->velocity.z/mg) * 360.0f;
+    //double hue = fmod(abs(p->velocity.x+p->velocity.y+p->velocity.z)/2, 360);
+    double hp = hue/60.0f;
+    double x = 255.0f / (1 - abs(fmod(hp,2.0f)-1.0f));
+
+    if (hp <= 1) {
+      pcol->r = 255;
+      pcol->g = x;
+      pcol->b = 0;
+    } else if (hp <= 2) {
+      pcol->r = x;
+      pcol->g = 255;
+      pcol->b = 0;
+    } else if (hp <= 3) {
+      pcol->r = 0;
+      pcol->g = 255;
+      pcol->b = x;
+    } else if (hp <= 4) {
+      pcol->r = 0;
+      pcol->g = x;
+      pcol->b = 255;
+    } else if (hp <= 5) {
+      pcol->r = x;
+      pcol->g = 0;
+      pcol->b = 255;
+    } else if (hp <= 6) {
+      pcol->r = 255;
+      pcol->g = 0;
+      pcol->b = x;
+    }
+//    p->color[0] += p->velocity[0]/255;
+//    p->color[1] += p->velocity[1]/255;
+//    p->color[2] += p->velocity[2]/255;
   }
-
-
-  struct vertex *_v = &s->particle_pos[p->pos_idx];
-  _v->x = p->pos[0];
-  _v->y = p->pos[1];
-  _v->z = p->pos[2];
-
-  struct vertexb *_vb = &s->particle_col[p->pos_idx];
-  _vb->x = p->color[0];
-  _vb->y = p->color[1];
-  _vb->z = p->color[2];
-  _vb->a = p->color[3];
 }
 
-static inline void _update_particle_collision(struct particle_system *s, struct particle *p, double t, double dt) {
+static inline void _update_particle_collision(
+  struct particle_system *s,
+  struct particle *p,
+  double t,
+  double dt
+) {
+  struct vertex *ppos = &s->particle_pos[p->pos_idx];
   //  particle-particle collision code is suboptimal..
 //  for (size_t i=0; i<s->particles->size; ++i) {
 //    struct particle *_p = s->particles->elements[i];
@@ -340,13 +387,13 @@ static inline void _update_particle_collision(struct particle_system *s, struct 
 //  }
 
   if (s->collideFloor) {
-    if (p->pos[1] <= -10000.05f) {
-      p->velocity[0] *= s->friction*p->bounce;
-      p->velocity[2] *= s->friction*p->bounce;
+    if (ppos->y <= -10000.05f) {
+      p->velocity.x *= s->friction*p->bounce;
+      p->velocity.z *= s->friction*p->bounce;
 
-      if (p->pos[1] < -10000.0f) {
-        p->pos[1] = -10000.0f;
-        p->velocity[1] = (-p->velocity[1] * p->bounce);// * _clampedRand(1.0f-p->collision_chaos, 1.0f) * dt;
+      if (ppos->y < -10000.0f) {
+        ppos->y = -10000.0f;
+        p->velocity.y = (-p->velocity.y * p->bounce);// * _clampedRand(1.0f-p->collision_chaos, 1.0f) * dt;
         
   //      p->velocity[0] += 1/ (p->bounce * p->velocity[1]);
   //      p->velocity[2] += 1/ (p->bounce * p->velocity[1]);
@@ -363,32 +410,66 @@ static inline void _update_particle_collision(struct particle_system *s, struct 
 
   if (s->collideWalls) {
   //TODO: expensive....
-    if (p->pos[0] >= 400.0f) {
-      p->pos[0] = 400.0f;
+    if (ppos->x >= 400.0f) {
+      ppos->x = 400.0f;
       //p->velocity[0] = -p->velocity[0] * p->bounce * dt;
-      p->velocity[0] = s->friction * -p->velocity[0] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-      p->velocity[2] += p->collision_chaos * myRandom() * dt;
+      p->velocity.x = s->friction * -p->velocity.x * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+      p->velocity.z += p->collision_chaos * myRandom() * dt;
     }
 
-    if (p->pos[0] <= -400.0f) {
-      p->pos[0] = -400.0f;
+    if (ppos->x <= -400.0f) {
+      ppos->x = -400.0f;
       //p->velocity[0] = -p->velocity[0] * p->bounce * dt;
-      p->velocity[0] = s->friction * -p->velocity[0] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-      p->velocity[2] += p->collision_chaos * myRandom() * dt;
+      p->velocity.x = s->friction * -p->velocity.x * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+      p->velocity.z += p->collision_chaos * myRandom() * dt;
     }
 
-    if (p->pos[2] >= 400.0f) {
-      p->pos[2] = 400.0f;
+    if (ppos->z >= 400.0f) {
+      ppos->z = 400.0f;
       //p->velocity[2] = -p->velocity[2] * p->bounce * dt;
-      p->velocity[2] = s->friction * -p->velocity[2] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-      p->velocity[0] += p->collision_chaos * myRandom() * dt;
+      p->velocity.z = s->friction * -p->velocity.z * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
+      p->velocity.x += p->collision_chaos * myRandom() * dt;
     }
 
-    if (p->pos[2] <= -400.0f) {
-      p->pos[2] = -400.0f;
-      p->velocity[2] = -p->velocity[2] * p->bounce;
+    if (ppos->z <= -400.0f) {
+      ppos->z = -400.0f;
+      p->velocity.z = -p->velocity.z * p->bounce;
       //p->velocity[2] = friction * -p->velocity[2] * p->bounce * _clampedRand(1.0f-p->collision_chaos, p->collision_chaos);
-      p->velocity[0] += p->collision_chaos * myRandom();
+      p->velocity.x += p->collision_chaos * myRandom();
     }
+  }
+}
+
+
+void particle_system_set_particle_pos(
+  struct particle_system *s,
+  struct particle *p,
+  struct vertex pos
+) {
+  s->particle_pos[p->pos_idx].x = pos.x;
+  s->particle_pos[p->pos_idx].y = pos.y;
+  s->particle_pos[p->pos_idx].z = pos.z;
+}
+
+void particle_system_set_particle_col(
+  struct particle_system *s,
+  struct particle *p,
+  struct vertex_col col
+) {
+  s->particle_col[p->pos_idx].r = col.r;
+  s->particle_col[p->pos_idx].g = col.g;
+  s->particle_col[p->pos_idx].b = col.b;
+  s->particle_col[p->pos_idx].a = col.a;
+}
+
+void particle_system_reset(struct particle_system *s) {
+  for (size_t i=0; i<s->emitters->size; ++i) {
+    ((struct emitter*)s->emitters->elements[i])->firing = 0;
+  }
+
+  for (size_t i=0; i<s->particles->size; ++i) {
+    struct particle *p = s->particles->elements[i];
+    p->active = 0;
+    s->particle_col[p->pos_idx].a = 0;
   }
 }

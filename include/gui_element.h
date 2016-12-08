@@ -30,7 +30,7 @@ void  gui_element_set_callback    (struct gui_element *e, void(*callback)(void))
 
 int   gui_element_is_inside (struct gui_element *e, int x, int y);
 
-void  gui_element_draw  (struct gui_element *e);
+void  gui_element_draw  (struct gui_element *e, int top);
 
 
 #endif

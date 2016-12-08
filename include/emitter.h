@@ -2,14 +2,15 @@
 #define _EMITTER_H__
 
 struct particle;
-#include "vector3f.h"
+struct particle_system;
 #include "vector.h"
+#include "vertex.h"
 
 
 struct emitter {
   struct particle *base_particle;
 
-  struct vector3f position;
+  struct vertex position;
   
   double pitch, yaw;
 
@@ -26,6 +27,8 @@ struct emitter {
   int firing;
 
   int emission_count;
+
+  struct particle_system *psystem;
 };
 
 struct emitter *emitter_new (struct vector *particle_pool);
