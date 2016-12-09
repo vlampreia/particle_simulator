@@ -37,6 +37,8 @@ struct gui_element *gui_element_new(
 
   e->callback = callback;
 
+  e->visible = 1;
+
   _compile(e);
 
   return e;
@@ -62,6 +64,10 @@ void gui_element_set_dimensions(struct gui_element *e, int width, int height) {
   _compile(e);
 }
 
+void gui_element_set_visible(struct gui_element *e, int visible) {
+  e->visible = visible;
+}
+
 void gui_element_set_str(struct gui_element *e, const char *str, int resize) {
   //char *nstr = realloc(e->str, len+1);
   //if (!nstr) return;
@@ -79,15 +85,17 @@ void gui_element_set_callback(struct gui_element *e, void(*callback)(void)) {
   e->callback = callback;
 }
 
-int gui_element_is_inside(struct gui_element *e, int x, int y) {
+int gui_element_is_inside(struct gui_element *e, int top, int x, int y) {
+  if (!e->visible) return 0;
   return (
     x >= e->x && x <= e->x + e->width &&
-    y >= e->y && y <= e->y + e->height
+    y >= top+e->y && y <= top+e->y + e->height
   );
 }
 
 void gui_element_draw(struct gui_element *e, int top) {
   if (!e->str) return;
+  if (!e->visible) return;
 
   if (e->callback == NULL) glColor4f(0.7f, 0.7f, 0.7f, 0.3f);
   else glColor4f(0.4f, 0.55f, 0.9f, 0.4f);
@@ -100,7 +108,7 @@ void gui_element_draw(struct gui_element *e, int top) {
   //glScalef(1.0f/(152.38f), 1.0f/152.38f, 1.0f/152.38f);
   glScalef(1.0f/15.0f,1.0f/15.0f,1.0f/15.0f);
 
-  size_t i = 0;
+  int i = 0;
   //int x_offset = 5;
   glColor4ub(255, 255, 255, 255);
   //glRasterPos2i(e->x + x_offset, 5 + e->y);

@@ -8,6 +8,7 @@
 #include "vertex.h"
 #include "emitter.h"
 #include "particle.h"
+#include "attractor.h"
 
 #include "gui_manager.h"
 #include "gui_element.h"
@@ -16,6 +17,75 @@
 #include "camera.h"
 
 //------------------------------------------------------------------------------
+
+#define KB_PERIOD 46
+#define KB_ESC 27
+#define KB_SPACE 32
+#define KB_0 48
+#define KB_1 49
+#define KB_2 50
+#define KB_3 51
+#define KB_4 52
+#define KB_5 53
+#define KB_6 54
+#define KB_7 55
+#define KB_8 56
+#define KB_9 57
+#define KB_A 65
+#define KB_B 66
+#define KB_C 67
+#define KB_D 68
+#define KB_E 69
+#define KB_F 70
+#define KB_G 71
+#define KB_H 72
+#define KB_I 73
+#define KB_J 74
+#define KB_K 75
+#define KB_L 76
+#define KB_M 77
+#define KB_N 78
+#define KB_O 79
+#define KB_P 80
+#define KB_Q 81
+#define KB_R 82
+#define KB_S 83
+#define KB_T 84
+#define KB_U 85
+#define KB_V 86
+#define KB_W 87
+#define KB_X 88
+#define KB_Y 89
+#define KB_Z 90
+#define KB_a 97
+#define KB_b 98
+#define KB_c 99
+#define KB_d 100
+#define KB_e 101
+#define KB_f 102
+#define KB_g 103
+#define KB_h 104
+#define KB_i 105
+#define KB_j 106
+#define KB_k 107
+#define KB_l 108
+#define KB_m 109
+#define KB_n 110
+#define KB_o 111
+#define KB_p 112
+#define KB_q 113
+#define KB_r 114
+#define KB_s 115
+#define KB_t 116
+#define KB_u 117
+#define KB_v 118
+#define KB_w 119
+#define KB_x 120
+#define KB_y 121
+#define KB_z 122
+
+//------------------------------------------------------------------------------
+
 
 #define NSIGN(x) ((x > 0) - (x < 0))
 
@@ -50,6 +120,11 @@ static int _window_height = 600;
 
 static struct vertex _mouseWorldPos =  {0.0, 0.0, 0.0};
 
+#define CTRL_CAT_NONE -1
+#define CTRL_CAT_EMITTER 1
+#define CTRL_CAT_ATTRACTOR 2
+#define CTRL_CAT_MAXIDX 3
+static int _ctrl_cat  = CTRL_CAT_NONE;
 static int _ctrl_mode = 1;
 static int _ctrl_edit = 0;
 static int _ctrl_edit_mode = 0;
@@ -65,6 +140,8 @@ static int _drawFloor = 0;
 static int _draw_ui = 1;
 static int _do_phys = 1;
 static int _draw_attractors = 0;
+
+int draw_mode = GL_POINTS;
 
 static char _gui_buffer[256];
 
@@ -100,7 +177,7 @@ static int axisEnabled= 1;
 int msq = 0;
 
 
-static void _toggleEdit() {
+static void _toggleEdit(void) {
   _ctrl_edit = !_ctrl_edit;
   if (!_ctrl_edit) glutSetCursor(GLUT_CURSOR_INHERIT);
 }
@@ -109,14 +186,16 @@ static void _toggleEdit() {
 
 /* main UI */
 
-static struct gui_element *txt_ctrlMode = NULL;
+static struct gui_element *txt_ctrl_mode_header = NULL;
+static struct gui_element *txt_ctrl_mode_element = NULL;
+
+
 static struct gui_element *txt_fps      = NULL;
 static struct gui_element *txt_mspf     = NULL;
 static struct gui_element *txt_sfps     = NULL;
 static struct gui_element *txt_smspf    = NULL;
 static struct gui_element *txt_pcount   = NULL;
 
-static struct gui_element *btn_fire     = NULL;
 static struct gui_element *btn_autoFire = NULL;
 
 static struct gui_element *txt_grav     = NULL;
@@ -156,24 +235,86 @@ static void _cb_incGrav() {
 }
 
 static void _set_ctrl_mode(int mode) {
-  _ctrl_mode = mode;
+  if (mode == CTRL_CAT_NONE) {
+    _ctrl_cat = CTRL_CAT_NONE;
+    _ctrl_mode = 0;
+    snprintf(_gui_buffer, 256, "edit none");
+    gui_element_set_str(txt_ctrl_mode_header, _gui_buffer, 0);
+    gui_element_set_visible(btn_autoFire, 0);
+    gui_element_set_visible(txt_mass,   0);
+    gui_element_set_visible(btn_decMass, 0);
+    gui_element_set_visible(btn_incMass, 0);
+    gui_element_set_visible(txt_rate,   0);
+    gui_element_set_visible(txt_bounce, 0);
+    gui_element_set_visible(txt_force,  0);
+    gui_element_set_visible(btn_type,   0);
+    gui_element_set_visible(btn_decBounce, 0);
+    gui_element_set_visible(btn_incBounce, 0);
+    gui_element_set_visible(btn_decRate, 0);
+    gui_element_set_visible(btn_incRate, 0);
+  } else if (_ctrl_cat == CTRL_CAT_NONE && mode < CTRL_CAT_MAXIDX) {
+    _ctrl_cat = mode;
+    gui_element_set_visible(btn_autoFire, 1);
+    gui_element_set_visible(txt_mass,   1);
+    gui_element_set_visible(btn_decMass, 1);
+    gui_element_set_visible(btn_incMass, 1);
+    if (_ctrl_cat == CTRL_CAT_EMITTER) {
+      snprintf(_gui_buffer, 256, "edit emitter");
+      gui_element_set_visible(txt_rate,   1);
+      gui_element_set_visible(txt_bounce, 1);
+      gui_element_set_visible(txt_force,  1);
+      gui_element_set_visible(btn_type,   1);
+      gui_element_set_visible(btn_decBounce, 1);
+      gui_element_set_visible(btn_incBounce, 1);
+      gui_element_set_visible(btn_decRate, 1);
+      gui_element_set_visible(btn_incRate, 1);
+    } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+      snprintf(_gui_buffer, 256, "edit attractor");
+      gui_element_set_visible(txt_rate,   0);
+      gui_element_set_visible(txt_bounce, 0);
+      gui_element_set_visible(txt_force,  0);
+      gui_element_set_visible(btn_type,   0);
+      gui_element_set_visible(btn_decBounce, 0);
+      gui_element_set_visible(btn_incBounce, 0);
+      gui_element_set_visible(btn_decRate, 0);
+      gui_element_set_visible(btn_incRate, 0);
+    }
+    gui_element_set_str(txt_ctrl_mode_header, _gui_buffer, 0);
+    _ctrl_mode = 0;
+  } else if (_ctrl_cat != CTRL_CAT_NONE){
+    if (_ctrl_cat == CTRL_CAT_ATTRACTOR && _pSystem->attractors->size-1 < mode) return;
+    if (_ctrl_cat == CTRL_CAT_EMITTER && _pSystem->emitters->size-1 < mode) return;
+    _ctrl_mode = mode;
+  }
+
+  snprintf(_gui_buffer, 256, "%d", _ctrl_mode);
+  gui_element_set_str(txt_ctrl_mode_element, _gui_buffer, 0);
 
   char *str = malloc(15);
-  snprintf(str, 11, "Emitter: %d", _ctrl_mode);
-  gui_element_set_str(txt_ctrlMode, str, 0);
 
-  struct emitter *e = _pSystem->emitters->elements[mode];
-  snprintf(str, 11, "Rate: %f", e->frequency);
-  gui_element_set_str(txt_rate, str, 0);
+  if (_ctrl_cat == CTRL_CAT_EMITTER) {
+    struct emitter *e = _pSystem->emitters->elements[_ctrl_mode];
+    snprintf(str, 11, "Rate: %f", e->frequency);
+    gui_element_set_str(txt_rate, str, 0);
 
-  snprintf(str, 15, "Bounce: %f", e->base_particle->bounce);
-  gui_element_set_str(txt_bounce, str, 0);
+    snprintf(str, 15, "Bounce: %f", e->base_particle->bounce);
+    gui_element_set_str(txt_bounce, str, 0);
 
-  snprintf(str, 11, "Mass: %f", e->base_particle->mass);
-  gui_element_set_str(txt_mass, str, 0);
+    snprintf(str, 11, "Mass: %f", e->base_particle->mass);
+    gui_element_set_str(txt_mass, str, 0);
 
-  snprintf(str, 11, "Force: %f", e->force);
-  gui_element_set_str(txt_force, str, 0);
+    snprintf(str, 11, "Force: %f", e->force);
+    gui_element_set_str(txt_force, str, 0);
+
+    snprintf(_gui_buffer, 256, "Enabled: %d", e->firing);
+    gui_element_set_str(btn_autoFire, _gui_buffer, 0);
+  } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+    struct attractor *a = _pSystem->attractors->elements[_ctrl_mode];
+    snprintf(_gui_buffer, 256, "Mass: %ld", a->mass);
+    gui_element_set_str(txt_mass, _gui_buffer, 0);
+    snprintf(_gui_buffer, 256, "Enabled: %d", a->enabled);
+    gui_element_set_str(btn_autoFire, _gui_buffer, 0);
+  }
 
   free(str);
 }
@@ -280,28 +421,33 @@ static inline void render_particles(void) {
 
   glPointSize(1.0f);
 
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glEnableClientState(GL_COLOR_ARRAY);
-  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
-  glColorPointer(4, GL_UNSIGNED_BYTE, 0, _pSystem->particle_col);
-  glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
-  //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
-  glDisableClientState(GL_COLOR_ARRAY);
-  glDisableClientState(GL_VERTEX_ARRAY);
+  if (draw_mode == GL_POINTS) {
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
+    glColorPointer(4, GL_UNSIGNED_BYTE, 0, _pSystem->particle_col);
+    glDrawArrays(draw_mode, 0, NUM_PARTICLES);
+    //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+  } else {
+  glBegin(draw_mode);
+    for (size_t i=0; i<_pSystem->particles->size; ++i) {
+      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
+      if (!p->active) continue;
 
-  //glBegin(GL_POINTS);
-//    for (size_t i=0; i<_pSystem->particles->size; ++i) {
-//      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
-//      if (!p->active) continue;
-//
-//      glPointSize(_clampedRand(1.0f, 5.0f));
-//  glBegin(GL_POINTS);
-//      glColor4ubv(p->color);
-//      glVertex3fv(p->pos);
-//      active++;
-//  glEnd();
-//    }
-//  glEnd();
+      struct vertex *pos = _pSystem->particle_pos[p->pos_idx];
+      glColor4ub(_pSystem->particle_col[p->pos_idx]);
+      glVertex3fv(pos);
+      glVertex3f(pos->x , pos->y , pos->z );
+      glVertex3f(pos->x + 10, pos->y + 10, pos->z + 10);
+      glVertex3f(pos->x - 10, pos->y - 10, pos->z - 10);
+      active++;
+    }
+  glEnd();
+
+  }
+
 
   //snprintf(_gui_buffer, 256, "Particles: %d", active);
   //gui_element_set_str(txt_pcount, _gui_buffer, 1);
@@ -372,13 +518,14 @@ static void _render(void)
 
     if(axisEnabled) glCallList(axisList);
 
+    //draw emitters
     for (size_t i=0; i<_pSystem->emitters->size; ++i) {
       struct emitter *e = _pSystem->emitters->elements[i];
 
       struct vertex_col *col = &e->base_particle->base_color;
 
       glPointSize(10.0f);
-      if (i == _ctrl_mode) glColor3ub(col->r, col->g, col->b);
+      if (i == _ctrl_mode && _ctrl_cat == CTRL_CAT_EMITTER) glColor3ub(col->r, col->g, col->b);
       else glColor3ub(col->r/2, col->g/2, col->b/2);
 
       double pitch = e->pitch * DEG_TO_RAD;
@@ -415,6 +562,23 @@ static void _render(void)
       glEnd();
     }
 
+    //draw attractors
+    for (size_t i=0; i<_pSystem->attractors->size; ++i) {
+      struct attractor *a = _pSystem->attractors->elements[i];
+
+      size_t idx = i*4;
+      double m = a->mass;
+      double c = 1-m/10;
+      double mid = 0.0f;
+      if (i == _ctrl_mode && _ctrl_cat == CTRL_CAT_ATTRACTOR) mid = 1.0;
+      if (m > 0) glColor4f(0, mid, 1-m/10000000000.0, 0.5);
+      else       glColor4f(        1-m/10000000000.0, mid, 0, 0.3);
+      glPointSize(NSIGN(m) * m /100000000);
+      glBegin(GL_POINTS);
+        glVertex3f(a->pos.x, a->pos.y, a->pos.z);
+      glEnd();
+    }
+
     if (_z == 1.0f) {
       glutSetCursor(GLUT_CURSOR_INHERIT);
     } else {
@@ -430,21 +594,6 @@ static void _render(void)
   render_particles();
 
   if (_draw_attractors) {
-    for (size_t i=0; i<_pSystem->num_attractors; ++i) {
-      size_t idx = i*4;
-      double m = _pSystem->attractors[idx + 3];
-      double c = 1-m/10;
-      if (m > 0) glColor4f(0, 0, 1-m/10000000000.0, 0.5);
-      else       glColor4f(1-m/1000000000.0, 0, 0, 0.3);
-      glPointSize(NSIGN(m) * m /100000000);
-      glBegin(GL_POINTS);
-        glVertex3f(
-          _pSystem->attractors[idx + 0],
-          _pSystem->attractors[idx + 1],
-          _pSystem->attractors[idx + 2]
-        );
-      glEnd();
-    }
   }
 
   if (_drawWalls) {
@@ -467,47 +616,58 @@ static void clean_exit(void) {
 
 static void keyboard(unsigned char key, int x, int y)
 {
-
   switch (key) {
-    case 27: clean_exit(); break;
+    case KB_ESC: clean_exit(); break;
 
-    case 102:
-      ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing = !((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing;
+    case KB_f:
+      if (_ctrl_cat == CTRL_CAT_EMITTER) {
+        ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing = !((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing;
+      } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+        ((struct attractor*) _pSystem->attractors->elements[_ctrl_mode])->enabled = !((struct attractor*)_pSystem->attractors->elements[_ctrl_mode])->enabled;
+      } else {
+        break;
+      }
+      _set_ctrl_mode(_ctrl_mode);
       break;
 
     //case 32: emitter_fire(_pSystem->emitters->elements[_ctrl_mode], 1); break;
 
-    case 97: axisEnabled = !axisEnabled; break;
+    case KB_a: axisEnabled = !axisEnabled; break;
 
-    case 49: _set_ctrl_mode(1); break;
-    case 50: _set_ctrl_mode(2); break;
-    case 51: _set_ctrl_mode(3); break;
-    case 52: _set_ctrl_mode(4); break;
-    case 53: _set_ctrl_mode(5); break;
-    case 54: _set_ctrl_mode(6); break;
-    case 55: _set_ctrl_mode(7); break;
-    case 56: _set_ctrl_mode(8); break;
-    case 57: _set_ctrl_mode(9); break;
-    case 48: _set_ctrl_mode(0); break;
-    case 119: _drawWalls = !_drawWalls; break;
-    case 87: _drawFloor = !_drawFloor; break;
+    case KB_q: _set_ctrl_mode(CTRL_CAT_NONE); break;
+    case KB_1: _set_ctrl_mode(1); break;
+    case KB_2: _set_ctrl_mode(2); break;
+    case KB_3: _set_ctrl_mode(3); break;
+    case KB_4: _set_ctrl_mode(4); break;
+    case KB_5: _set_ctrl_mode(5); break;
+    case KB_6: _set_ctrl_mode(6); break;
+    case KB_7: _set_ctrl_mode(7); break;
+    case KB_8: _set_ctrl_mode(8); break;
+    case KB_9: _set_ctrl_mode(9); break;
+    case KB_0: _set_ctrl_mode(0); break;
 
-    case 65: _pSystem->friction += 0.01f; break;
-    case 83: _pSystem->friction -= 0.01f; break;
-    case 68: _pSystem->air_density += 0.01f; break;
-    case 70: _pSystem->air_density -= 0.01f; break;
+    case KB_w: _drawWalls = !_drawWalls; break;
+    case KB_W: _drawFloor = !_drawFloor; break;
 
-    case 99: _pSystem->collideWalls = !_pSystem->collideWalls; break;
-    case 67: _pSystem->collideFloor = !_pSystem->collideFloor; break;
+    case KB_A: _pSystem->friction += 0.01f; break;
+    case KB_S: _pSystem->friction -= 0.01f; break;
+    case KB_D: _pSystem->air_density += 0.01f; break;
+    case KB_F: _pSystem->air_density -= 0.01f; break;
 
-    case 117: _draw_ui = !_draw_ui; break;
-    case 101: _toggleEdit(); break;
+    case KB_c: _pSystem->collideWalls = !_pSystem->collideWalls; break;
+    case KB_C: _pSystem->collideFloor = !_pSystem->collideFloor; break;
 
-    case 32: _do_phys = !_do_phys; break;
+    case KB_u: _draw_ui = !_draw_ui; break;
+    case KB_e: _toggleEdit(); break;
 
-    case 113: _draw_attractors = !_draw_attractors; break;
+    case KB_SPACE: _do_phys = !_do_phys; break;
 
-    case 46: {
+    case KB_Q: _draw_attractors = !_draw_attractors; break;
+
+    case KB_l: draw_mode = GL_LINES; break;
+    case KB_p: draw_mode = GL_POINTS; break;
+
+    case KB_PERIOD: {
       double step = 1.0f;
       int active = particle_system_step(_pSystem, t, step);
       t+= step;
@@ -516,9 +676,9 @@ static void keyboard(unsigned char key, int x, int y)
       break;
     }
 
-    case 116: _pSystem->trip = !_pSystem->trip; break;
+    case KB_t: _pSystem->trip = !_pSystem->trip; break;
 
-    case 120: particle_system_reset(_pSystem); break;
+    case KB_x: particle_system_reset(_pSystem); break;
 
     default: break;
   }
@@ -553,10 +713,19 @@ static void mouse(int button, int state, int x, int y) {
       if (gui_manager_event_click(_guiManager, x, y, state)) break;
 
       _move_emitter = (_ctrl_edit && state == GLUT_DOWN);
-      if (_move_emitter && _ctrl_edit_mode == 0) vertex_copy(
-        &_mouseWorldPos,
-        &((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->position
-      );
+      if (_move_emitter && _ctrl_edit_mode == 0) {
+        if (_ctrl_cat == CTRL_CAT_EMITTER) {
+          vertex_copy(
+            &_mouseWorldPos,
+            &((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->position
+          );
+        } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+          vertex_copy(
+            &_mouseWorldPos,
+            &((struct attractor*)_pSystem->attractors->elements[_ctrl_mode])->pos
+          );
+        }
+      }
 
       break;
     case 2:
@@ -578,6 +747,27 @@ static void mouse(int button, int state, int x, int y) {
 
 static void init_psys(void) {
   _pSystem = particle_system_new(NUM_PARTICLES);
+
+  particle_system_add_attractor(_pSystem, attractor_new(
+      (struct vertex) {1, -5000, 800},
+      5000000000
+  ));
+
+  particle_system_add_attractor(_pSystem, attractor_new(
+      (struct vertex) {-10000, -5000, 800},
+      3000000000
+  ));
+
+  particle_system_add_attractor(_pSystem, attractor_new(
+      (struct vertex) {1, 5000, -4100},
+      4000000000
+  ));
+
+  particle_system_add_attractor(_pSystem, attractor_new(
+      (struct vertex) {10000, 5000, 8000},
+      -700000000
+  ));
+
 
   struct emitter *e1 = emitter_new(NULL);
   //e1->orientation = (struct vector3f) {0.2f, 0.8f, 0.1f};
@@ -712,6 +902,34 @@ static void init_psys(void) {
 
 //------------------------------------------------------------------------------
 
+static void _cb_incMass(void) {
+  if (_ctrl_cat == CTRL_CAT_EMITTER) {
+    ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->base_particle->mass += 100;
+  } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+    ((struct attractor*)_pSystem->attractors->elements[_ctrl_mode])->mass += 100000000;
+  }
+
+  _set_ctrl_mode(_ctrl_mode);
+}
+
+static void _cb_decMass(void) {
+  if (_ctrl_cat == CTRL_CAT_EMITTER) {
+    ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->base_particle->mass -= 100;
+  } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+    ((struct attractor*)_pSystem->attractors->elements[_ctrl_mode])->mass -= 100000000;
+  }
+  _set_ctrl_mode(_ctrl_mode);
+}
+
+static void _cb_enable(void) {
+  if (_ctrl_cat == CTRL_CAT_EMITTER) {
+    ((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing = !((struct emitter*)_pSystem->emitters->elements[_ctrl_mode])->firing;
+  } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+    ((struct attractor*)_pSystem->attractors->elements[_ctrl_mode])->enabled = !((struct attractor*)_pSystem->attractors->elements[_ctrl_mode])->enabled;
+  }
+  _set_ctrl_mode(_ctrl_mode);
+}
+
 static void init_gui(void) {
   _guiManager = gui_manager_new();
   gui_manager_set_dimensions(_guiManager, _window_width, _window_height, _window_height, 10);
@@ -733,9 +951,13 @@ static void init_gui(void) {
 
   gui_manager_new_element(_guiManager,NULL,0,0,NULL);
   gui_manager_new_element(_guiManager,NULL,0,0,NULL);
-  txt_ctrlMode  = gui_manager_new_element(_guiManager, "Emitter: 0", 0,0, NULL);
-  btn_autoFire  = gui_manager_new_element(_guiManager, "Auto Emit",  0,0, NULL);
-  btn_fire      = gui_manager_new_element(_guiManager, "Emit",       0,0, myCb);
+  txt_ctrl_mode_header = gui_manager_new_element(_guiManager, "edit none", 542,0,NULL);
+  txt_ctrl_mode_element = gui_manager_new_element(_guiManager, "", 50,0,NULL);
+  gui_manager_new_element(_guiManager,NULL,0,0,NULL);
+  btn_autoFire  = gui_manager_new_element(_guiManager, "Enabled: 0",    0,0, _cb_enable);
+  txt_mass      = gui_manager_new_element(_guiManager, "Mass: 1.0000000000",    0,0, NULL);
+  btn_decMass   = gui_manager_new_element(_guiManager, "-",             0,0, _cb_decMass);
+  btn_incMass   = gui_manager_new_element(_guiManager, "+",             0,0, _cb_incMass);
   txt_rate      = gui_manager_new_element(_guiManager, "Rate: 1000", 0,0, NULL);
   btn_decRate   = gui_manager_new_element(_guiManager, "-",          0,0, NULL);
   btn_incRate   = gui_manager_new_element(_guiManager, "+",          0,0, NULL);
@@ -745,10 +967,9 @@ static void init_gui(void) {
   txt_bounce    = gui_manager_new_element(_guiManager, "Bounce: 0.000", 0,0, NULL);
   btn_decBounce = gui_manager_new_element(_guiManager, "-",             0,0, NULL);
   btn_incBounce = gui_manager_new_element(_guiManager, "+",             0,0, NULL);
-  txt_mass      = gui_manager_new_element(_guiManager, "Mass: 1.00",    0,0, NULL);
-  btn_decMass   = gui_manager_new_element(_guiManager, "-",             0,0, NULL);
-  btn_incMass   = gui_manager_new_element(_guiManager, "+",             0,0, NULL);
   txt_force     = gui_manager_new_element(_guiManager, "Force: 000.0",  0,0, NULL);
+
+  _set_ctrl_mode(CTRL_CAT_NONE);
 }
 
 //------------------------------------------------------------------------------
@@ -764,7 +985,11 @@ static void mouse_move(int x, int y) {
   if (_move_emitter) {
     struct emitter *e = _pSystem->emitters->elements[_ctrl_mode];
     if (_ctrl_edit_mode == 0) {
-      vertex_copy(&_mouseWorldPos, &e->position);
+      if (_ctrl_cat == CTRL_CAT_EMITTER) {
+        vertex_copy(&_mouseWorldPos, &e->position);
+      } else if (_ctrl_cat == CTRL_CAT_ATTRACTOR) {
+        vertex_copy(&_mouseWorldPos, &((struct attractor*)_pSystem->attractors->elements[_ctrl_mode])->pos);
+      }
     } else if (_ctrl_edit_mode == 1) {
       e->yaw += delta;
     } else if (_ctrl_edit_mode == 2) {

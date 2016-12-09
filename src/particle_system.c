@@ -8,6 +8,7 @@
 #include "vertex.h"
 #include "particle.h"
 #include "emitter.h"
+#include "attractor.h"
 
 
 static void _update_emitters(struct vector *elist, double t, double dt);
@@ -30,14 +31,6 @@ static double _mind(double a, double b) {
 }
 
 #define NSIGN(x) ((x > 0) - (x < 0))
-
-static void _configure_attractor(double *a, size_t i, double x, double y, double z, double g) {
-  size_t idx = i*4;
-  a[idx] = x;
-  a[idx + 1] = y;
-  a[idx + 2] = z;
-  a[idx + 3] = g;
-}
 
 struct particle_system *particle_system_new(size_t numParticles) {
   struct particle_system *s = malloc(sizeof(*s));
@@ -65,12 +58,11 @@ struct particle_system *particle_system_new(size_t numParticles) {
   s->collideWalls = 0;
   s->isCollisionEnabled = 1;
 
-  s->num_attractors = 1;
-  s->attractors = malloc(sizeof(*s->attractors) * 4 * s->num_attractors);
+  s->attractors = vector_new(10, 0);
 
   s->trip = 0;
 
-  _configure_attractor(s->attractors, 0, 1, -5000, 800 , 5000000000.5);
+  //_configure_attractor(s->attractors, 0, 1, -5000, 800 , 5000000000.5);
 //  _configure_attractor(s->attractors, 2, 100000, 50000, 0, 0.3);
 //  _configure_attractor(s->attractors, 2, 2000000, 50000, 0, -0.3);
   //_configure_attractor(s->attractors, 1, 0, 0, 0, -2);
@@ -97,6 +89,13 @@ void particle_system_add_emitter(struct particle_system *s, struct emitter *e) {
   if (vector_add(s->emitters, e) == -1) return;
   emitter_set_particle_pool(e, s->particles);
   e->psystem = s;
+}
+
+void particle_system_add_attractor(
+    struct particle_system *s,
+    struct attractor *a
+) {
+  if (vector_add(s->attractors, a) == -1) return;
 }
 
 
@@ -240,32 +239,23 @@ static inline void _update_particle_pos(
 
   struct vertex na = {0,0,0};
 
-  for (size_t i=0; i<s->num_attractors; ++i) {
-    size_t idx = i*4;
-
-    double mass = s->attractors[idx + 3];
+  for (size_t i=0; i<s->attractors->size; ++i) {
+    struct attractor *a = s->attractors->elements[i];
+    if (!a->enabled) continue;
 
     struct vertex dv = (struct vertex) {
-      s->attractors[idx + 0] - ppos->x,
-      s->attractors[idx + 1] - ppos->y,
-      s->attractors[idx + 2] - ppos->z
+      a->pos.x - ppos->x,
+      a->pos.y - ppos->y,
+      a->pos.z - ppos->z
     };
 
     double magnitude = sqrt(dv.x*dv.x + dv.y*dv.y + dv.z*dv.z);
+    magnitude = pow((magnitude*magnitude) + e2, factor);
 
-    //magnitude = fisqrt(magnitude);//1.0f / sqrt(magnitude);
-    //650mspf @ 200k
-    //550mspf @ 200k
-
-    struct vertex dvn = (struct vertex) {
-      dv.x / magnitude,
-      dv.y / magnitude,
-      dv.z / magnitude
-    };
-
-    na.x += ((mass * dv.x)/pow((magnitude*magnitude + e2), factor));
-    na.y += ((mass * dv.y)/pow((magnitude*magnitude + e2), factor));
-    na.z += ((mass * dv.z)/pow((magnitude*magnitude + e2), factor));
+    //F = G * (mass * dv) / pow(|dv| + e2, factor)
+    na.x += ((a->mass * dv.x)/magnitude);
+    na.y += ((a->mass * dv.y)/magnitude);
+    na.z += ((a->mass * dv.z)/magnitude);
   }
 
   na.x *= G;
@@ -273,13 +263,16 @@ static inline void _update_particle_pos(
   na.z *= G;
   //vector3f_normalise(p->velocity);
 
-  s->particle_pos[pidx].x += p->velocity.x * dt + 1.0f/2.0f * p->acceleration.x * dt*dt;
-  s->particle_pos[pidx].y += p->velocity.y * dt + 1.0f/2.0f * p->acceleration.y * dt*dt;
-  s->particle_pos[pidx].z += p->velocity.z * dt + 1.0f/2.0f * p->acceleration.z * dt*dt;
+  //dt == 1
+  //p = vel * dt + 1/2 * a * dt^2
+  s->particle_pos[pidx].x += p->velocity.x + p->acceleration.x/2;
+  s->particle_pos[pidx].y += p->velocity.y + p->acceleration.y/2;
+  s->particle_pos[pidx].z += p->velocity.z + p->acceleration.z/2;
 
-  p->velocity.x += 1.0f/2.0f * (na.x + p->acceleration.x) * dt;
-  p->velocity.y += 1.0f/2.0f * (na.y + p->acceleration.y) * dt;
-  p->velocity.z += 1.0f/2.0f * (na.z + p->acceleration.z) * dt;
+  //v = 1/2 * (a1 + 1) * dt
+  p->velocity.x += (na.x + p->acceleration.x)/2;
+  p->velocity.y += (na.y + p->acceleration.y)/2;
+  p->velocity.z += (na.z + p->acceleration.z)/2;
 
   p->acceleration.x = na.x;
   p->acceleration.y = na.y;
