@@ -677,7 +677,7 @@ static void init_psys(void) {
   //e2->base_particle->color = (struct vector3f){0.0f, 1.0f, 1.0f};
   e2->base_particle->collision_chaos = 0.01f;
   e2->frequency = 1;
-  e2->emission_count = 50000;
+  e2->emission_count = 100000;
   particle_system_add_emitter(_pSystem, e2);
 
   e2 = emitter_new(NULL);

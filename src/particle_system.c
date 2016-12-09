@@ -65,13 +65,15 @@ struct particle_system *particle_system_new(size_t numParticles) {
   s->collideWalls = 0;
   s->isCollisionEnabled = 1;
 
-  s->num_attractors = 1;
+  s->num_attractors = 3;
   s->attractors = malloc(sizeof(*s->attractors) * 4 * s->num_attractors);
 
   s->trip = 0;
 
-  _configure_attractor(s->attractors, 0, 1, -5000, 800 , 5000000000.5);
-//  _configure_attractor(s->attractors, 2, 100000, 50000, 0, 0.3);
+  _configure_attractor(s->attractors, 0, -1000, -5000, 800 ,    0);//-2000000000.5);
+  _configure_attractor(s->attractors, 1, 1, 2150, 4090,         5500000000.3);
+  _configure_attractor(s->attractors, 2, 3000, 7000, 0,        0);//-3000000000.0);
+
 //  _configure_attractor(s->attractors, 2, 2000000, 50000, 0, -0.3);
   //_configure_attractor(s->attractors, 1, 0, 0, 0, -2);
   //_configure_attractor(s->attractors, 1, 0, 0, 0, 10);
@@ -257,12 +259,6 @@ static inline void _update_particle_pos(
     //650mspf @ 200k
     //550mspf @ 200k
 
-    struct vertex dvn = (struct vertex) {
-      dv.x / magnitude,
-      dv.y / magnitude,
-      dv.z / magnitude
-    };
-
     na.x += ((mass * dv.x)/pow((magnitude*magnitude + e2), factor));
     na.y += ((mass * dv.y)/pow((magnitude*magnitude + e2), factor));
     na.z += ((mass * dv.z)/pow((magnitude*magnitude + e2), factor));
@@ -305,8 +301,8 @@ static inline void _update_particle_pos(
       p->velocity.y * p->velocity.y +
       p->velocity.z * p->velocity.z
     );
-    double hue = (p->velocity.x/mg + p->velocity.y/mg + p->velocity.z/mg) * 360.0f;
-    //double hue = fmod(abs(p->velocity.x+p->velocity.y+p->velocity.z)/2, 360);
+    //double hue = (p->velocity.x/mg + p->velocity.y/mg + p->velocity.z/mg) * 360.0f;
+    double hue = fmod(abs(p->velocity.x+p->velocity.y+p->velocity.z)/2, 360);
     double hp = hue/60.0f;
     double x = 255.0f / (1 - abs(fmod(hp,2.0f)-1.0f));
 

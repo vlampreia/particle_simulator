@@ -110,8 +110,8 @@ static void _init_particle(struct emitter *e, struct particle *p) {
   particle_copy(e->base_particle, p);
   particle_system_set_particle_pos(e->psystem, p, e->position);
 
-  double pmod = e->pitch + (myRandom(RAND_MAX)/(double)RAND_MAX) * e->vert_angle;
-  double ymod = e->yaw   + (myRandom(RAND_MAX)/(double)RAND_MAX) * e->horiz_angle;
+  double pmod = e->pitch + (random()/(double)RAND_MAX) * e->vert_angle;
+  double ymod = e->yaw   + (random()/(double)RAND_MAX) * e->horiz_angle;
   pmod *= DEG_TO_RAD;
   ymod *= DEG_TO_RAD;
 //  double pmod = (e->pitch + (e->vert_angle  * myRandom())) * DEG_TO_RAD;
