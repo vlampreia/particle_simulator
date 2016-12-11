@@ -8,6 +8,7 @@
 
 struct particle;
 struct emitter;
+struct attractor;
 
 struct particle_system {
   struct vector *particles;
@@ -24,10 +25,7 @@ struct particle_system {
   int collideWalls;
   int trip;
 
-  size_t num_attractors;
-  double *attractors;
-  //double attractors[3][4];
-  
+  struct vector *attractors;
 
   int isCollisionEnabled;
 };
@@ -47,4 +45,8 @@ void particle_system_set_particle_col(
       struct particle_system *s, struct particle *p, struct vertex_col col);
 
 void particle_system_reset(struct particle_system *s);
+
+
+void particle_system_add_attractor (struct particle_system *s, struct attractor *a);
+
 #endif

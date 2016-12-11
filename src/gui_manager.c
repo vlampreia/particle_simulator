@@ -90,7 +90,7 @@ int gui_manager_event_click(struct gui_manager *m, int x, int y, int state) {
     struct gui_element *e = m->elements->elements[i];
     if (!e || e->callback == NULL) continue;
 
-    if (gui_element_is_inside(e, x, ry)) {
+    if (gui_element_is_inside(e, m->top, x, ry)) {
       e->callback();
       return 1;
     }

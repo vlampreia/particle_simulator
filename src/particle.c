@@ -60,6 +60,8 @@ void particle_delete(struct particle **p) {
   if (!*p) return;
 
   free(*p);
+
+  *p = NULL;
 }
 
 void particle_copy(struct particle *s, struct particle *t) {

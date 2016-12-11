@@ -9,10 +9,6 @@
 #define DEG_TO_RAD 0.017453293
 
 static void _init_particle(struct emitter *e, struct particle *p);
-static double _clampedRand(double min, double max) {
-  return min + rand() / ((double)RAND_MAX/(max-min));
-}
-
 
 struct emitter *emitter_new(struct vector *particle_pool) {
   struct emitter *e = malloc(sizeof(*e));
