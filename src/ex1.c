@@ -170,6 +170,7 @@ GLuint crosshairList;
 GLuint floorList;
 GLuint gradFloorList;
 GLuint wallsList;
+GLuint terrainList;
 
 int AXIS_SIZE= 200;
 static int axisEnabled= 1;
@@ -421,32 +422,14 @@ static inline void render_particles(void) {
 
   glPointSize(1.0f);
 
-  if (draw_mode == GL_POINTS) {
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
-    glColorPointer(4, GL_UNSIGNED_BYTE, 0, _pSystem->particle_col);
-    glDrawArrays(draw_mode, 0, NUM_PARTICLES);
-    //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
-  } else {
-  glBegin(draw_mode);
-    for (size_t i=0; i<_pSystem->particles->size; ++i) {
-      struct particle *p = (struct particle*)_pSystem->particles->elements[i];
-      if (!p->active) continue;
-
-      struct vertex *pos = _pSystem->particle_pos[p->pos_idx];
-      glColor4ub(_pSystem->particle_col[p->pos_idx]);
-      glVertex3fv(pos);
-      glVertex3f(pos->x , pos->y , pos->z );
-      glVertex3f(pos->x + 10, pos->y + 10, pos->z + 10);
-      glVertex3f(pos->x - 10, pos->y - 10, pos->z - 10);
-      active++;
-    }
-  glEnd();
-
-  }
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glVertexPointer(3, GL_FLOAT, 0, _pSystem->particle_pos);
+  glColorPointer(4, GL_UNSIGNED_BYTE, 0, _pSystem->particle_col);
+  glDrawArrays(draw_mode, 0, NUM_PARTICLES);
+  //glDrawRangeElements(GL_POINTS, 0, count, count, GL_UNSIGNED_BYTE, _pSystem->particle_idx);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
 
 
   //snprintf(_gui_buffer, 256, "Particles: %d", active);
@@ -599,6 +582,8 @@ static void _render(void)
   if (_drawWalls) {
     glCallList(wallsList);
   }
+
+  glCallList(terrainList);
 
   glPointSize(1);
   if (_draw_ui) gui_manager_draw(_guiManager);
@@ -1025,6 +1010,202 @@ static void reshape(int width, int height)
 
 //------------------------------------------------------------------------------
 
+struct QuadTree {
+  struct QuadTree *topLeft;
+  struct QuadTree *topRight;
+  struct QuadTree *bottomLeft;
+  struct QuadTree *bottomRight;
+
+  struct QuadTree *top;
+  struct QuadTree *bottom;
+  struct QuadTree *left;
+  struct QuadTree *right;
+
+  struct vertex pos_topLeft;
+  struct vertex pos_topRight;
+  struct vertex pos_bottomLeft;
+  struct vertex pos_bottomRight;
+};
+
+struct QuadTree *QuadTree_new(
+  struct vertex topleft,
+  struct vertex topright,
+  struct vertex bottomleft,
+  struct vertex bottomright
+) {
+  struct QuadTree *qt = malloc(sizeof(*qt));
+  if (!qt) return NULL;
+
+  qt->top = NULL;
+  qt->bottom = NULL;
+  qt->left = NULL;
+  qt->right = NULL;
+
+  qt->topLeft = NULL;
+  qt->topRight = NULL;
+  qt->bottomLeft = NULL;
+  qt->bottomRight = NULL;
+
+  qt->pos_topLeft = topleft;
+  qt->pos_topRight = topright;
+  qt->pos_bottomLeft = bottomleft;
+  qt->pos_bottomRight = bottomright;
+
+  return qt;
+}
+
+static void subdivide_num(struct QuadTree *qt, int num) {
+  if (num == 0) return;
+
+  float horizMid = qt->pos_topLeft.x +
+                  (qt->pos_topRight.x - qt->pos_topLeft.x)/2;
+
+  float vertMid = qt->pos_topLeft.z +
+                  (qt->pos_bottomLeft.z - qt->pos_topLeft.z)/2;
+
+  /*
+   * If we have adjacent blocks, we will take their midpoints if they have been
+   * subdivided, otherwise, use random offset.
+   *
+   *
+   * EDIT: TODO: this won't work if we subdivide more than once as we don't
+   * drill down into deepr subdivisions....
+   */
+
+  float midYt = myRandom()*1000/(num*2);
+  if (qt->top) {
+    if (qt->top->bottomLeft) midYt = qt->top->bottomLeft->pos_bottomRight.y;
+    else if (qt->top->bottomRight) midYt = qt->top->bottomRight->pos_bottomLeft.y;
+  }
+
+  float midYb = myRandom()*1000/(num*2);
+  if (qt->bottom) {
+    if (qt->bottom->topLeft) midYb = qt->bottom->topLeft->pos_topRight.y;
+    else if (qt->bottom->topRight) midYb = qt->bottom->topRight->pos_topLeft.y;
+  }
+
+  float midYl = myRandom()*1000/(num*2);
+  if (qt->left) {
+    if (qt->left->topRight) midYl = qt->left->topRight->pos_bottomRight.y;
+    else if (qt->left->bottomRight) midYl = qt->left->bottomRight->pos_topRight.y;
+  }
+
+  float midYr = myRandom()*1000/(num*2);
+  if (qt->right) {
+    if (qt->right->topLeft) midYr = qt->right->topLeft->pos_bottomLeft.y;
+    else if (qt->right->bottomLeft) midYr = qt->right->bottomLeft->pos_topLeft.y;
+  }
+
+  float midYc = myRandom()*1000/(num*2);
+
+  qt->topLeft     = QuadTree_new(
+    qt->pos_topLeft,
+    (struct vertex) {horizMid, midYt, qt->pos_topRight.z},
+    (struct vertex) {qt->pos_topLeft.x, midYl, vertMid},
+    (struct vertex) {horizMid, midYc, vertMid}
+  );
+
+  qt->topRight    = QuadTree_new(
+    (struct vertex) {horizMid, midYt, qt->pos_topRight.z},
+    qt->pos_topRight,
+    (struct vertex) {horizMid, midYc, vertMid},
+    (struct vertex) {qt->pos_topRight.x, midYr, vertMid}
+  );
+
+  qt->bottomLeft  = QuadTree_new(
+    (struct vertex) {qt->pos_bottomLeft.x, midYl, vertMid},
+    (struct vertex) {horizMid, midYc, vertMid},
+    qt->pos_bottomLeft,
+    (struct vertex) {horizMid, midYb, qt->pos_bottomLeft.z}
+  );
+
+  qt->bottomRight = QuadTree_new(
+    (struct vertex) {horizMid, midYc, vertMid},
+    (struct vertex) {qt->pos_bottomRight.x, midYr, vertMid},
+    (struct vertex) {horizMid, midYb, qt->pos_bottomRight.z},
+    qt->pos_bottomRight
+  );
+
+  qt->topLeft->right = qt->topRight;
+  qt->topLeft->bottom = qt->bottomLeft;
+  qt->topRight->left = qt->topLeft;
+  qt->topRight->bottom = qt->bottomRight;
+  qt->bottomLeft->top = qt->topLeft;
+  qt->bottomLeft->right = qt->bottomRight;
+  qt->bottomRight->left = qt->bottomLeft;
+  qt->bottomRight->top = qt->topRight;
+
+  subdivide_num(qt->topLeft, num-1);
+  subdivide_num(qt->topRight, num-1);
+  //subdivide_num(qt->bottomLeft, num-1);
+  //subdivide_num(qt->bottomRight, num-1);
+}
+
+static void _glVertex(struct vertex v) {
+  glVertex3f(v.x, v.y, v.z);
+}
+
+static void render_qt(struct QuadTree *qt) {
+  float horizMid = qt->pos_topLeft.x +
+                  (qt->pos_topRight.x - qt->pos_topLeft.x)/2;
+
+  float vertMid = qt->pos_topLeft.z +
+                  (qt->pos_bottomLeft.z - qt->pos_topLeft.z)/2;
+
+  if (qt->topLeft) {
+    render_qt(qt->topLeft);
+  } else {
+    _glVertex(qt->pos_topLeft);
+    if (qt->topRight) _glVertex(qt->topRight->pos_topLeft);
+    else _glVertex(qt->pos_topRight);
+
+    _glVertex(qt->pos_topLeft);
+    if (qt->bottomLeft) _glVertex(qt->bottomLeft->pos_topLeft);
+    else _glVertex(qt->pos_bottomLeft);
+  }
+
+  if (!qt->topRight && !qt->right) {
+    _glVertex(qt->pos_topRight);
+    _glVertex(qt->pos_bottomRight);
+  }
+
+  if (!qt->bottomRight && !qt->bottom) {
+    _glVertex(qt->pos_bottomLeft);
+    _glVertex(qt->pos_bottomRight);
+  }
+
+  if (qt->topRight) render_qt(qt->topRight);
+  if (qt->bottomLeft) render_qt(qt->bottomLeft);
+  if (qt->bottomRight) render_qt(qt->bottomRight);
+}
+
+
+static void makeTerrain(int iterations) {
+  terrainList = glGenLists(1);
+
+  int width = 5000;
+  int height = 5000;
+
+  struct QuadTree *terrain = QuadTree_new(
+    (struct vertex) {-width, 0, -height},
+    (struct vertex) { width, 0, -height},
+    (struct vertex) {-width, 0,  height},
+    (struct vertex) { width, 0,  height}
+  );
+
+  subdivide_num(terrain, iterations);
+
+  glNewList(terrainList, GL_COMPILE);
+    glLineWidth(2.0f);
+    glColor3f(1.0, 1.0, 1.0);
+
+    glBegin(GL_LINES);
+      render_qt(terrain);
+    glEnd();
+  glEndList();
+}
+
+
 static void makeAxes(void) {
 // Create a display list for drawing coord axis
   axisList = glGenLists(1);
@@ -1224,6 +1405,7 @@ int main(int argc, char *argv[])
   makeFloor();
   makeGradFloor();
   makeWalls();
+  makeTerrain(4);
 
   init_psys();
   _gui_update_gravtext();
