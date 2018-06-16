@@ -583,7 +583,7 @@ static void _render(void)
     glCallList(wallsList);
   }
 
-  glCallList(terrainList);
+  //glCallList(terrainList);
 
   glPointSize(1);
   if (_draw_ui) gui_manager_draw(_guiManager);
